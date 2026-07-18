@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+  Identité "table de jeu" volontairement fixe (pas d'adaptation au thème clair/sombre
+  Telegram) — choix assumé pour un jeu avec sa propre identité forte plutôt qu'une
+  mini-app utilitaire. Voir memory-match-spec.md pour le contexte produit.
+*/
+@theme {
+  --color-ink: #0b1f1a;
+  --color-surface: #123b30;
+  --color-surface-2: #17493c;
+  --color-gold: #e8b75e;
+  --color-gold-soft: #f4d48c;
+  --color-cream: #f3efe4;
+  --color-sage: #8fa79c;
+  --color-coral: #e8615e;
+  --color-mint: #6fcf9e;
+
+  --font-display: "Fraunces", serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Widget <adsgram-task> — variables documentées par Adsgram, alignées sur nos tokens. */
+.adsgram-task-widget {
+  --adsgram-task-font-size: 15px;
+  --adsgram-task-icon-size: 44px;
+  --adsgram-task-icon-title-gap: 12px;
+  --adsgram-task-icon-border-radius: 10px;
+  --adsgram-task-button-width: 90px;
+}

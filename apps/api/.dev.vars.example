@@ -1,0 +1,6 @@
+# Copie ce fichier en ".dev.vars" (jamais commité) et mets tes vraies valeurs.
+# En prod, ne JAMAIS mettre ces secrets dans wrangler.jsonc : utilise `wrangler secret put <NOM>`.
+TELEGRAM_BOT_TOKEN=123456789:AAExampleTokenFromBotFather
+ADSGRAM_POSTBACK_SECRET=change-me-to-a-long-random-string
+FAUCETPAY_API_KEY=change-me-faucet-owner-api-key
+ADMIN_API_KEY=change-me-to-another-long-random-string

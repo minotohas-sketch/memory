@@ -1,0 +1,14 @@
+{
+  "name": "memory-match",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @memory-match/api dev",
+    "deploy:api": "pnpm --filter @memory-match/api deploy",
+    "types:api": "pnpm --filter @memory-match/api types",
+    "db:migrate:local": "pnpm --filter @memory-match/api db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @memory-match/api db:migrate:remote",
+    "dev:web": "pnpm --filter @memory-match/web dev",
+    "build:web": "pnpm --filter @memory-match/web build"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "memory-match-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Fenêtre de fraîcheur de l'initData Telegram, en secondes — voir le
+  // commentaire dans lib/telegram-auth.ts pour le compromis assumé.
+  "vars": {
+    "INIT_DATA_MAX_AGE_SECONDS": "21600"
+  },
+
+  // D1 — remplace database_id après `wrangler d1 create memory-match-db`
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "memory-match-db",
+      "database_id": "REPLACE_AFTER_D1_CREATE",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // KV — remplace id après `wrangler kv namespace create memory-match-kv`
+  "kv_namespaces": [
+    {
+      "binding": "GAME_KV",
+      "id": "REPLACE_AFTER_KV_CREATE"
+    }
+  ],
+
+  // Queue — `wrangler queues create withdrawal-queue` + `withdrawal-queue-dlq`
+  // (le consumer réel arrive en Phase 5, pour l'instant il ne fait qu'ack les messages)
+  "queues": {
+    "producers": [
+      { "binding": "WITHDRAWAL_QUEUE", "queue": "withdrawal-queue" }
+    ],
+    "consumers": [
+      {
+        "queue": "withdrawal-queue",
+        "max_batch_size": 5,
+        "max_batch_timeout": 30,
+        "max_retries": 5,
+        "dead_letter_queue": "withdrawal-queue-dlq"
+      }
+    ]
+  },
+
+  // Cron — batch de paiement chaque lundi 00:00 UTC (§7 du spec : à ajuster si tu veux un autre fuseau)
+  "triggers": {
+    "crons": ["0 0 * * 1"]
+  }
+}
