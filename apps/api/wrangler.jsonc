@@ -15,7 +15,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "memory-match-db",
+      "database_name": "me",
       "database_id": "REPLACE_AFTER_D1_CREATE",
       "migrations_dir": "migrations"
     }
@@ -33,15 +33,15 @@
   // (le consumer réel arrive en Phase 5, pour l'instant il ne fait qu'ack les messages)
   "queues": {
     "producers": [
-      { "binding": "WITHDRAWAL_QUEUE", "queue": "withdrawal-queue" }
+      { "binding": "WITHDRAWAL_QUEUE", "queue": "payout-queue" }
     ],
     "consumers": [
       {
-        "queue": "withdrawal-queue",
+        "queue": "payout-queue",
         "max_batch_size": 5,
         "max_batch_timeout": 30,
         "max_retries": 5,
-        "dead_letter_queue": "withdrawal-queue-dlq"
+        "dead_letter_queue": "payout-queue-dlq"
       }
     ]
   },
