@@ -8,7 +8,7 @@
 CREATE TABLE ad_rewards (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  event_id TEXT NOT NULL UNIQUE, -- "ymid" Monetag : dédoublonnage si un postback est renvoyé 2 fois
+  event_id TEXT NOT NULL UNIQUE, 
   placement TEXT NOT NULL,
   reward INTEGER NOT NULL,
   created_at INTEGER NOT NULL
