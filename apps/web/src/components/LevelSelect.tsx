@@ -1,6 +1,7 @@
 import type { LevelConfig } from "@memory-match/shared";
 import type { ApiClient, MeResponse } from "../lib/api";
 import { useRewardAd } from "../lib/useRewardAd";
+import { useMonetagEarnCoins, useMonetagEnergyRefill } from "../lib/useMonetag";
 import { StatsBar } from "./StatsBar";
 import { RewardAdButton } from "./RewardAdButton";
 
@@ -31,6 +32,8 @@ export function LevelSelect({
 }: Props) {
   const energyAd = useRewardAd(import.meta.env.VITE_ADSGRAM_ENERGY_BLOCK_ID, api, onMeUpdate);
   const bonusAd = useRewardAd(import.meta.env.VITE_ADSGRAM_BONUS_BLOCK_ID, api, onMeUpdate);
+  const monetagCoinsAd = useMonetagEarnCoins(api, onMeUpdate);
+  const monetagEnergyAd = useMonetagEnergyRefill(api, onMeUpdate);
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-8 max-w-md mx-auto">
@@ -48,8 +51,33 @@ export function LevelSelect({
           status={energyAd.status}
           onClick={energyAd.watch}
           disabled={me.energy >= me.energy_max}
+          cooldownSeconds={me.adCooldowns.energy_refill}
         />
-        <RewardAdButton label="Coins bonus" icon="🪙" status={bonusAd.status} onClick={bonusAd.watch} />
+        <RewardAdButton
+          label="Coins bonus"
+          icon="🪙"
+          status={bonusAd.status}
+          onClick={bonusAd.watch}
+          cooldownSeconds={me.adCooldowns.bonus_coins}
+        />
+      </div>
+
+      <div className="flex gap-2.5 -mt-2">
+        <RewardAdButton
+          label="+3 énergie"
+          icon="⚡"
+          status={monetagEnergyAd.status}
+          onClick={monetagEnergyAd.watch}
+          disabled={me.energy >= me.energy_max}
+          cooldownSeconds={me.adCooldowns.monetag_energy_refill}
+        />
+        <RewardAdButton
+          label="+50 coins"
+          icon="🪙"
+          status={monetagCoinsAd.status}
+          onClick={monetagCoinsAd.watch}
+          cooldownSeconds={me.adCooldowns.monetag_earn_coins}
+        />
       </div>
 
       {me.energy < 1 && (

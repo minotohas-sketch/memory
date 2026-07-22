@@ -1,6 +1,7 @@
-// Typage minimal du SDK Adsgram (Reward/Interstitial) et déclaration JSX pour
-// le web component <adsgram-task>. Voir memory-match-spec.md §5 pour le détail
-// vérifié de l'intégration (formats de blockId, Reward URL S2S, etc.)
+// ==========================================
+// AdsGram SDK Types
+// Reward / Interstitial / Task
+// ==========================================
 
 export interface AdsgramShowResult {
   done?: boolean;
@@ -12,8 +13,14 @@ export interface AdsgramShowResult {
 export interface AdsgramController {
   show(): Promise<AdsgramShowResult>;
   destroy(): void;
-  addEventListener(event: string, cb: (e?: unknown) => void): void;
-  removeEventListener(event: string, cb: (e?: unknown) => void): void;
+  addEventListener(
+    event: string,
+    cb: (event?: CustomEvent | Event | unknown) => void
+  ): void;
+  removeEventListener(
+    event: string,
+    cb: (event?: CustomEvent | Event | unknown) => void
+  ): void;
 }
 
 export interface AdsgramInitParams {
@@ -30,13 +37,27 @@ declare global {
   }
 }
 
-// React 19 déclare IntrinsicElements sous `declare module "react" { namespace JSX }`,
-// pas dans un namespace JSX global — vérifié directement dans les types installés
-// (node_modules/@types/react), la doc étant ambiguë à ce sujet selon les versions.
+// ==========================================
+// React JSX support for <adsgram-task>
+// ==========================================
+
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "adsgram-task": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      "adsgram-task": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        ref?: React.Ref<HTMLElement>;
+
+        "data-block-id"?: string;
+
+        "data-debug"?: boolean | string;
+
+        "data-debug-console"?: boolean | string;
+
+        className?: string;
+      };
     }
   }
 }

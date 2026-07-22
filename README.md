@@ -147,3 +147,22 @@ Déjà couvert avant cette passe (le prompt d'origine supposait que c'était man
 Testé : migrations 0001+0002 appliquées en local avec succès, CHECK constraint vérifiée en forçant une écriture invalide (rejetée), FK vers `users` toujours fonctionnelles après reconstruction de table, `tsc` et `wrangler deploy --dry-run` passent sur les deux apps.
 
 Pistes pour la suite si tu veux aller plus loin : tests automatisés, monitoring/alerting sur le Worker, token de session (voir ci-dessus) si tu veux vraiment une fenêtre de fraîcheur courte, authentification admin plus robuste si plusieurs personnes doivent y accéder.
+
+**Phase 8 — Cooldowns visibles + monétisation Monetag**
+
+- Les boutons de reward ad (Adsgram énergie/coins, et maintenant Monetag) affichent un vrai compte à rebours et se désactivent pendant le cooldown, plutôt que de rester cliquables en permanence — c'était la source de la frustration "je regarde une pub et je ne suis pas crédité" (en fait crédité une fois, les fois suivantes tombaient dans le cooldown silencieusement). `/api/me` expose maintenant `adCooldowns` (Adsgram, via KV) fusionné avec les cooldowns Monetag (via D1, table `ad_rewards`, clés préfixées `monetag_` pour ne pas entrer en collision avec les clés Adsgram)
+- Écran Tâches : même traitement, message de cooldown au lieu du widget quand non réclamable
+- **Monetag** ajouté comme 2e réseau publicitaire, en plus d'Adsgram (pas à la place) : Rewarded Interstitial (+50 coins) et Rewarded Popup (+3 énergie)
+- ⚠️ **Point de sécurité important** : Monetag indique explicitement dans sa doc que l'endpoint de postback doit être accessible **sans authentification** de leur côté — ils ne fournissent pas de signature comme certains réseaux CPA (contrairement à Adsgram où j'avais déjà ce réflexe). Le code fourni initialement n'avait donc aucune protection, ce qui aurait permis à n'importe qui connaissant un `telegram_id` de générer des coins gratuits à l'infini avec un `ymid` inventé. Comme pour Adsgram, on écrit nous-mêmes l'URL de postback dans le dashboard Monetag, donc rien n'empêche d'y ajouter notre propre secret statique — c'est ce qui a été ajouté (`MONETAG_POSTBACK_SECRET`, vérifié en temps constant)
+- Bug corrigé au passage : le code initial créditait de l'énergie sans mettre à jour `energy_updated_at`, ce qui aurait faussé le calcul de régénération à la lecture suivante
+
+### Configurer Monetag
+
+1. Crée un compte sur Monetag, active le SDK pour ton app, note ta Zone ID
+2. `wrangler secret put MONETAG_POSTBACK_SECRET` (encore une valeur aléatoire distincte)
+3. Configure l'URL de postback dans le dashboard Monetag pour chaque format, en ajoutant `&secret=TON_SECRET` :
+   - Rewarded Interstitial : `https://TON-URL-API/api/monetag/postback?telegram_id={telegram_id}&ymid={ymid}&reward_event_type={reward_event_type}&request_var=earn_coins&secret=TON_SECRET`
+   - Rewarded Popup : même URL avec `&request_var=energy_refill`
+4. Si ta Zone ID Monetag n'est pas `11369203`, remplace-la dans `apps/web/src/lib/useMonetag.ts` (SDK zone) — c'est un identifiant public (pas un secret), mais il doit correspondre à ton compte
+
+Testé : migrations 0001+0002+0003 appliquées en local avec succès, `tsc` et `vite build` passent sur les deux apps. Le postback Monetag lui-même n'a pas pu être testé en conditions réelles (pas de compte Monetag ni d'accès réseau à leur domaine dans mon environnement) — teste avec un petit montant/déclenchement réel avant de t'y fier pleinement, même logique de prudence que pour FaucetPay.

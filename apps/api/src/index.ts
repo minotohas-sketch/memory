@@ -6,6 +6,7 @@ import meRoutes from "./routes/me";
 import gameRoutes from "./routes/game";
 import leaderboardRoutes from "./routes/leaderboard";
 import adsRoutes from "./routes/ads";
+import monetagRoutes from "./routes/monetag";
 import withdrawRoutes from "./routes/withdraw";
 import adminRoutes from "./routes/admin";
 import { sendFaucetPayPayment } from "./lib/faucetpay";
@@ -27,6 +28,7 @@ app.route("/api/me", meRoutes);
 app.route("/api/game", gameRoutes);
 app.route("/api/leaderboard", leaderboardRoutes);
 app.route("/api/ads", adsRoutes);
+app.route("/api/monetag", monetagRoutes);
 app.route("/api/withdraw", withdrawRoutes);
 app.route("/api/admin", adminRoutes);
 

@@ -168,6 +168,7 @@ export default function App() {
           blockId={import.meta.env.VITE_ADSGRAM_TASK_BLOCK_ID}
           onBack={() => setScreen("select")}
           onCompleted={() => api.me().then(setMe).catch(() => {})}
+          cooldownSeconds={me.adCooldowns.task}
         />
       )}
 

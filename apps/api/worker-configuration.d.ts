@@ -10,4 +10,5 @@ interface CloudflareBindings {
   FAUCETPAY_API_KEY: string;
   ADMIN_API_KEY: string;
   INIT_DATA_MAX_AGE_SECONDS?: string;
+  MONETAG_POSTBACK_SECRET: string;
 }
