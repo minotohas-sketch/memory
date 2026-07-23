@@ -74,6 +74,30 @@ export interface MeResponse {
   adCooldowns: AdCooldowns;
 }
 
+const DEFAULT_AD_COOLDOWNS: AdCooldowns = {
+  energy_refill: 0,
+  bonus_coins: 0,
+  task: 0,
+  monetag_energy_refill: 0,
+  monetag_earn_coins: 0,
+};
+
+/**
+ * Le back et le front de ce projet se déploient séparément (Worker vs
+ * Pages) — rien n'empêche l'un d'être en avance sur l'autre pendant une
+ * mise à jour. Sans ce filet, un backend pas encore à jour (adCooldowns
+ * absent ou partiel) fait planter tout l'écran ("Cannot read properties of
+ * undefined (reading 'energy_refill')") au lieu d'un simple bouton affichant
+ * "0". On complète toujours les clés manquantes plutôt que de faire
+ * confiance à la forme exacte de ce que le serveur renvoie.
+ */
+function normalizeMe(me: MeResponse): MeResponse {
+  return {
+    ...me,
+    adCooldowns: { ...DEFAULT_AD_COOLDOWNS, ...(me.adCooldowns ?? {}) },
+  };
+}
+
 export interface StartGameResponse {
   sessionId: string;
   level: number;
@@ -129,13 +153,13 @@ export function createApiClient(initData: string) {
         {
           method: "POST",
         }
-      ),
+      ).then((res) => ({ ...res, user: normalizeMe(res.user) })),
 
     me: () =>
       apiFetch<MeResponse>(
         "/api/me",
         initData
-      ),
+      ).then(normalizeMe),
 
     startGame: (level: number) =>
       apiFetch<StartGameResponse>(
@@ -160,7 +184,7 @@ export function createApiClient(initData: string) {
           method: "POST",
           body: JSON.stringify(payload),
         }
-      ),
+      ).then((res) => ({ ...res, user: normalizeMe(res.user) })),
 
     leaderboard: () =>
       apiFetch<{ entries: LeaderboardEntry[] }>(
