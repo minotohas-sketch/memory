@@ -6,6 +6,7 @@ import {
   useMonetagEarnCoins,
   useMonetagEnergyRefill,
 } from "../lib/useMonetag";
+import { useStableCooldown } from "../lib/useStableCooldown";
 
 import { StatsBar } from "./StatsBar";
 import { RewardAdButton } from "./RewardAdButton";
@@ -104,6 +105,16 @@ export function LevelSelect({
       onMeUpdate
     );
 
+  /*
+    COOLDOWNS STABILISÉS
+    (server + prédiction locale, voir useStableCooldown.ts —
+    contourne la cohérence éventuelle de KV sur un reload rapide)
+  */
+  const adsgramEnergyCooldown = useStableCooldown("energy_refill", me.adCooldowns.energy_refill ?? 0);
+  const adsgramCoinsCooldown = useStableCooldown("bonus_coins", me.adCooldowns.bonus_coins ?? 0);
+  const monetagEnergyCooldown = useStableCooldown("monetag_energy_refill", me.adCooldowns.monetag_energy_refill ?? 0);
+  const monetagCoinsCooldown = useStableCooldown("monetag_earn_coins", me.adCooldowns.monetag_earn_coins ?? 0);
+
 
 
 
@@ -169,7 +180,7 @@ disabled={
 }
 
 cooldownSeconds={
-  me.adCooldowns.energy_refill ?? 0
+  adsgramEnergyCooldown
 }
 
 />
@@ -187,7 +198,7 @@ status={adsgramCoins.status}
 onClick={adsgramCoins.watch}
 
 cooldownSeconds={
-  me.adCooldowns.bonus_coins ?? 0
+  adsgramCoinsCooldown
 }
 
 />
@@ -220,7 +231,7 @@ disabled={
 }
 
 cooldownSeconds={
-  me.adCooldowns.monetag_energy_refill ?? 0
+  monetagEnergyCooldown
 }
 
 />
@@ -238,7 +249,7 @@ status={monetagCoins.status}
 onClick={monetagCoins.watch}
 
 cooldownSeconds={
-  me.adCooldowns.monetag_earn_coins ?? 0
+  monetagCoinsCooldown
 }
 
 />

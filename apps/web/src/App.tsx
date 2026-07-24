@@ -10,6 +10,7 @@ import { ResultScreen } from "./components/ResultScreen";
 import { Leaderboard } from "./components/Leaderboard";
 import { ReferralScreen } from "./components/ReferralScreen";
 import { TasksScreen } from "./components/TasksScreen";
+import { useStableCooldown } from "./lib/useStableCooldown";
 import { WithdrawScreen } from "./components/WithdrawScreen";
 
 type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw";
@@ -32,6 +33,10 @@ export default function App() {
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+
+  // Doit être appelé avant tout retour anticipé (règle des hooks) — d'où le
+  // repli `?? 0` tant que `me` n'est pas encore chargé.
+  const taskCooldown = useStableCooldown("task", me?.adCooldowns.task ?? 0);
 
   useEffect(() => {
     if (!isReady) return;
@@ -168,7 +173,7 @@ export default function App() {
           blockId={import.meta.env.VITE_ADSGRAM_TASK_BLOCK_ID}
           onBack={() => setScreen("select")}
           onCompleted={() => api.me().then(setMe).catch(() => {})}
-          cooldownSeconds={me.adCooldowns.task}
+          cooldownSeconds={taskCooldown}
         />
       )}
 
