@@ -201,7 +201,25 @@ export function createApiClient(initData: string) {
           body: JSON.stringify({ address }),
         }
       ),
+ptcStart: (taskId: string) =>
+  apiFetch<{ token: string; waitSeconds: number; rewardCoins: number }>(
+    "/api/ptc/start",
+    initData,
+    {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    }
+  ),
 
+ptcClaim: (token: string) =>
+  apiFetch<{ ok: boolean; coinsEarned: number; waitedSeconds: number }>(
+    "/api/ptc/claim",
+    initData,
+    {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }
+  ),
     withdrawHistory: () =>
       apiFetch<{ withdrawals: WithdrawalHistoryEntry[] }>(
         "/api/withdraw/history",

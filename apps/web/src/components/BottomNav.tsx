@@ -7,11 +7,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+   { screen: "ptc", label: "Gagner", icon: "🖥" },
   { screen: "select", label: "Jouer", icon: "🎮" },
   { screen: "tasks", label: "Tâches", icon: "📋" },
   { screen: "leaderboard", label: "Top", icon: "🏆" },
   { screen: "referral", label: "Amis", icon: "👥" },
-  { screen: "withdraw", label: "Retirer", icon: "💸" },
+  { screen: "withdraw", label: "Retirer", icon: "💳" },
 ];
 
 interface Props {

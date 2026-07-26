@@ -139,6 +139,9 @@ export default function App() {
         />
       )}
 
+     {screen === "ptc" && (
+        <PtcScreen api={api} onBack={() => setScreen("select")} />
+      )}
       {screen === "playing" && activeLevel && (
         <GameBoard
           level={activeLevel}
