@@ -7,14 +7,13 @@ import {
   MIN_WITHDRAWAL_USDT,
   MIN_WITHDRAWAL_COINS,
 } from "@memory-match/shared";
-import { checkFaucetPayAddress } from "../lib/faucetpay";
 import { checkRateLimit } from "../lib/rate-limit";
 import { logAudit } from "../lib/audit";
 
 const withdraw = new Hono<AuthEnv>();
 
 const MAX_REQUESTS_PER_WINDOW = 3;
-const WINDOW_SECONDS = 300; // 5 min — une vraie demande de retrait n'a jamais besoin d'être spammée
+const WINDOW_SECONDS = 300;
 
 withdraw.post("/", telegramAuth, async (c) => {
   const tgUser = c.get("telegramUser");
@@ -35,8 +34,7 @@ withdraw.post("/", telegramAuth, async (c) => {
   if (!address) {
     return c.json({ error: "missing_address" }, 400);
   }
-  // Validation de forme avant même d'appeler FaucetPay (rejette les entrées
-  // absurdes/malveillantes gratuitement, sans consommer de quota API externe).
+
   if (!isValidFaucetPayEmail(address)) {
     return c.json({ error: "invalid_address_format" }, 400);
   }
@@ -51,22 +49,18 @@ withdraw.post("/", telegramAuth, async (c) => {
     return c.json({ error: "below_minimum", minCoins: MIN_WITHDRAWAL_COINS }, 400);
   }
 
-  // Validé dès la demande, pas seulement le jour du batch (spec §6) : évite
-  // de découvrir le problème le lundi et de devoir tout re-traiter.
-  const addressValid = await checkFaucetPayAddress(c.env.FAUCETPAY_API_KEY, address);
-  if (!addressValid) {
-    return c.json({ error: "invalid_faucetpay_address" }, 400);
-  }
+  // Pas de vérification FaucetPay ici : l'API /checkaddress ne fonctionne
+  // qu'avec des adresses wallet (TRC20), pas avec des emails. Pour les
+  // transferts internes par email (gratuits), la validation sera faite au
+  // moment du batch le lundi. Si l'email n'existe pas, le paiement échoue
+  // et les coins sont remboursés (status "failed").
+  //
+  // On garde juste la validation de forme côté serveur (isValidFaucetPayEmail)
+  // pour rejeter les entrées manifestement invalides sans frais.
 
   const coinsConsumed = usdtToCoins(usdtAmount);
   const now = Date.now();
 
-  // Déduction atomique "compare-and-swap" : la clause AND coins >= ? garantit
-  // qu'on ne déduit QUE si le solde lu à l'instant de l'écriture est encore
-  // suffisant (protège contre 2 demandes quasi-simultanées, ex. 2 onglets).
-  // meta.changes == 0 veut dire que la condition n'a pas matché : quelqu'un
-  // d'autre (ou une autre requête) a changé le solde entre la lecture et
-  // l'écriture — on rejette proprement plutôt que de risquer un solde négatif.
   const updateResult = await c.env.DB.prepare("UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?")
     .bind(coinsConsumed, user.id, coinsConsumed)
     .run();
