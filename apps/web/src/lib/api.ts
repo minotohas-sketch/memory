@@ -207,5 +207,12 @@ export function createApiClient(initData: string) {
         "/api/withdraw/history",
         initData
       ),
+
+    linkTaskStart: () =>
+      apiFetch<{ shortUrl: string; rewardCoins: number }>(
+        "/api/link-task/start",
+        initData,
+        { method: "POST" }
+      ),
   };
 }

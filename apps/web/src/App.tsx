@@ -12,8 +12,9 @@ import { ReferralScreen } from "./components/ReferralScreen";
 import { TasksScreen } from "./components/TasksScreen";
 import { useStableCooldown } from "./lib/useStableCooldown";
 import { WithdrawScreen } from "./components/WithdrawScreen";
+import { LinkTaskScreen } from "./components/LinkTaskScreen";
 
-type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw";
+type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask";
 
 // Cadence volontairement simple (compteur en mémoire, pas persisté) : un
 // interstitiel toutes les 3 parties, affiché au retour vers la sélection de
@@ -132,6 +133,7 @@ export default function App() {
           onShowReferral={() => setScreen("referral")}
           onShowTasks={() => setScreen("tasks")}
           onShowWithdraw={() => setScreen("withdraw")}
+          onShowLinkTask={() => setScreen("linktask")}
           playerName={user.first_name}
           me={me}
           api={api}
@@ -179,6 +181,10 @@ export default function App() {
 
       {screen === "withdraw" && (
         <WithdrawScreen me={me} api={api} onBack={() => setScreen("select")} onMeUpdate={setMe} />
+      )}
+
+      {screen === "linktask" && (
+        <LinkTaskScreen api={api} onBack={() => setScreen("select")} onMeUpdate={setMe} />
       )}
     </div>
   );

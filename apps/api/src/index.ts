@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import telegramRoutes from "./routes/telegram";
 import authRoutes from "./routes/auth";
 import meRoutes from "./routes/me";
 import gameRoutes from "./routes/game";
@@ -9,6 +10,7 @@ import adsRoutes from "./routes/ads";
 import monetagRoutes from "./routes/monetag";
 import withdrawRoutes from "./routes/withdraw";
 import adminRoutes from "./routes/admin";
+import linkTaskRoutes from "./routes/link-task";
 import { sendFaucetPayPayment } from "./lib/faucetpay";
 import { queuePendingWithdrawals } from "./lib/withdrawals";
 import { logAudit } from "./lib/audit";
@@ -22,6 +24,7 @@ app.use("/api/*", cors());
 app.use("/api/*", apiSecurityHeaders);
 
 app.get("/health", (c) => c.json({ status: "ok", ts: Date.now() }));
+app.route("/telegram", telegramRoutes);
 
 app.route("/api/auth", authRoutes);
 app.route("/api/me", meRoutes);
@@ -31,6 +34,7 @@ app.route("/api/ads", adsRoutes);
 app.route("/api/monetag", monetagRoutes);
 app.route("/api/withdraw", withdrawRoutes);
 app.route("/api/admin", adminRoutes);
+app.route("/api/link-task", linkTaskRoutes);
 
 // Panel admin auto-contenu (voir admin-page.ts) — la page est publique, les
 // données qu'elle affiche viennent de /api/admin/* protégées par ADMIN_API_KEY.

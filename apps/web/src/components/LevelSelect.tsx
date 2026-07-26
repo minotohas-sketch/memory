@@ -27,6 +27,8 @@ interface Props {
 
   onShowWithdraw:()=>void;
 
+  onShowLinkTask:()=>void;
+
 
   playerName:string;
 
@@ -54,6 +56,8 @@ export function LevelSelect({
   onShowTasks,
 
   onShowWithdraw,
+
+  onShowLinkTask,
 
   playerName,
 
@@ -442,6 +446,15 @@ onClick={onShowWithdraw}
 className="text-sm text-sage"
 >
 💸 Retirer
+</button>
+
+
+
+<button
+onClick={onShowLinkTask}
+className="text-sm text-sage"
+>
+🔗 Lien bonus
 </button>
 
 

@@ -11,4 +11,7 @@ interface CloudflareBindings {
   ADMIN_API_KEY: string;
   INIT_DATA_MAX_AGE_SECONDS?: string;
   MONETAG_POSTBACK_SECRET: string;
+  EXEIO_API_TOKEN: string;
+  PUBLIC_API_URL: string;
+  TELEGRAM_BOT_USERNAME?: string;
 }

@@ -8,7 +8,11 @@
   // Fenêtre de fraîcheur de l'initData Telegram, en secondes — voir le
   // commentaire dans lib/telegram-auth.ts pour le compromis assumé.
   "vars": {
-    "INIT_DATA_MAX_AGE_SECONDS": "21600"
+    "INIT_DATA_MAX_AGE_SECONDS": "21600",
+    // Ton URL de Worker déployé — utilisée pour construire l'URL de
+    // destination donnée à exe.io. Remplace après le 1er `wrangler deploy`.
+    "PUBLIC_API_URL": "https://REPLACE_AFTER_FIRST_DEPLOY.workers.dev",
+    "TELEGRAM_BOT_USERNAME": "REPLACE_WITH_YOUR_BOT_USERNAME"
   },
 
   // D1 — remplace database_id après `wrangler d1 create memory-match-db`

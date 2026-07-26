@@ -166,3 +166,32 @@ Pistes pour la suite si tu veux aller plus loin : tests automatisés, monitoring
 4. Si ta Zone ID Monetag n'est pas `11369203`, remplace-la dans `apps/web/src/lib/useMonetag.ts` (SDK zone) — c'est un identifiant public (pas un secret), mais il doit correspondre à ton compte
 
 Testé : migrations 0001+0002+0003 appliquées en local avec succès, `tsc` et `vite build` passent sur les deux apps. Le postback Monetag lui-même n'a pas pu être testé en conditions réelles (pas de compte Monetag ni d'accès réseau à leur domaine dans mon environnement) — teste avec un petit montant/déclenchement réel avant de t'y fier pleinement, même logique de prudence que pour FaucetPay.
+
+**Phase 9 — Tâche "lien externe" (exe.io)**
+
+Mécanisme différent des précédents : l'utilisateur quitte complètement Telegram (navigateur externe), traverse le parcours publicitaire d'exe.io, puis revient via une page de vérification qui crédite la récompense.
+
+- `POST /api/link-task/start` (authentifié) : génère un token à usage unique, l'encode dans une URL de destination (`/api/link-task/verify?token=...`), demande à exe.io de la raccourcir, renvoie le lien court
+- Le bouton "Ouvrir le lien" utilise `Telegram.WebApp.openLink(url, { try_instant_view: false })` — sans le `try_instant_view: false`, Telegram peut ouvrir le lien dans sa propre vue au lieu d'un vrai navigateur externe, ce qui casse tout le principe (les pubs d'exe.io ont besoin d'un vrai navigateur)
+- `GET /api/link-task/verify` (page HTML publique, sans auth Telegram — l'utilisateur n'a plus de contexte Mini App à ce stade) : vérifie le token, crédite +25 coins, affiche un bouton de retour vers le bot
+- Pas de rafraîchissement automatique pendant que l'utilisateur est sur son navigateur externe : l'écran écoute `visibilitychange` et relit `/api/me` quand l'utilisateur revient dans l'app
+
+### ⚠️ Ce placement est structurellement moins fiable que les autres
+
+Contrairement à Adsgram/Monetag où un **tiers** confirme la récompense, ici c'est le **navigateur de l'utilisateur lui-même** qui revient frapper l'URL de vérification — lui seul contrôle ce signal. exe.io ne fournit aucune vérification serveur-à-serveur (juste une API de raccourcissement, confirmé directement depuis leur dashboard). Défenses mises en place, aucune n'étant infaillible seule :
+- Token opaque à usage unique, généré côté serveur (impossible à deviner)
+- Délai minimum de 20s entre la génération du lien et la vérification (leur parcours pub prend forcément du temps ; en dessous, rejet + log dans `audit_log`) — un attaquant patient peut contourner ça en attendant simplement, mais ça élimine le bypass instantané
+- Récompense volontairement plus modeste (25 coins, contre 30-50 ailleurs) pour limiter l'exposition
+
+Si tu constates un abus (regarde `audit_log` côté admin, filtre `link_task_rejected_too_fast` pour voir les tentatives déjà bloquées), le plus simple est de baisser encore la récompense ou de retirer ce placement — ce n'est pas la même garantie que les deux autres réseaux.
+
+### Configurer exe.io
+
+1. Récupère ton token API depuis ton dashboard exe.io (Developers API)
+2. `wrangler secret put EXEIO_API_TOKEN`
+3. Dans `wrangler.jsonc`, remplace `PUBLIC_API_URL` par l'URL réelle de ton Worker déployé (nécessaire pour construire l'URL de destination donnée à exe.io), et `TELEGRAM_BOT_USERNAME` par le username de ton bot (pour le bouton de retour)
+4. Redéploie (`wrangler deploy`)
+
+⚠️ Si tu as déjà partagé ton token API exe.io en clair quelque part (dashboard, message...), régénère-le avant de le poser en secret — un token exposé doit être considéré compromis.
+
+Testé : migration 0004 appliquée en local avec succès, `tsc` et `vite build` passent. L'appel réel à l'API exe.io n'a pas pu être testé (pas d'accès réseau à leur domaine dans mon environnement) — vérifie qu'un lien se génère correctement avant de compter dessus.
