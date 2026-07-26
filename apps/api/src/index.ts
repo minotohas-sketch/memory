@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import telegramRoutes from "./routes/telegram";
+
 import authRoutes from "./routes/auth";
 import meRoutes from "./routes/me";
 import gameRoutes from "./routes/game";
