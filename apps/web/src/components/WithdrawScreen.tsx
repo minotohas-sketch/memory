@@ -4,7 +4,7 @@ import {
   MIN_WITHDRAWAL_COINS,
   MIN_WITHDRAWAL_USDT,
   coinsToUsdt,
-  isValidTrc20Address,
+  isValidFaucetPayEmail,
 } from "@memory-match/shared";
 import { ApiError, type ApiClient, type MeResponse, type WithdrawalHistoryEntry } from "../lib/api";
 
@@ -16,11 +16,13 @@ interface Props {
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
-  missing_address: "Indique une adresse.",
-  invalid_address_format: 'Format inattendu — une adresse TRC20 commence par "T" et fait 34 caractères.',
+  missing_address: "Indique ton adresse email FaucetPay.",
+  invalid_address_format: "Format d'email invalide — exemple : nom@email.com",
   below_minimum: `Solde insuffisant — ${MIN_WITHDRAWAL_USDT} USDT minimum (${MIN_WITHDRAWAL_COINS} coins).`,
   invalid_faucetpay_address:
-    "Cette adresse n'est pas liée à un compte FaucetPay. Vérifie-la dans FaucetPay → Linked Addresses.",
+    "Cet email n'est pas lié à un compte FaucetPay. Vérifie qu'un compte existe avec cet email.",
+  email_not_linked:
+    "Aucun compte FaucetPay n'est associé à cet email. Inscris-toi d'abord sur faucetpay.io.",
   balance_changed_retry: "Ton solde a changé entre-temps — réessaie.",
   rate_limited: "Trop de tentatives — réessaie dans quelques minutes.",
   network_error: "Impossible de joindre le serveur.",
@@ -43,7 +45,7 @@ const STATUS_COLOR: Record<WithdrawalHistoryEntry["status"], string> = {
 };
 
 export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
-  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -58,27 +60,30 @@ export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
 
   const usdtAmount = coinsToUsdt(me.coins);
   const canWithdraw = me.coins >= MIN_WITHDRAWAL_COINS;
-  const trimmedAddress = address.trim();
-  const addressLooksValid = trimmedAddress.length === 0 || isValidTrc20Address(trimmedAddress);
+  const trimmedEmail = email.trim().toLowerCase();
+  const emailLooksValid = trimmedEmail.length === 0 || isValidFaucetPayEmail(trimmedEmail);
 
   const handleSubmit = async () => {
-    if (!trimmedAddress || !isValidTrc20Address(trimmedAddress) || submitting) return;
+    if (!trimmedEmail || !isValidFaucetPayEmail(trimmedEmail) || submitting) return;
+
     setSubmitting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+
     try {
-      const res = await api.requestWithdraw(address.trim());
+      const res = await api.requestWithdraw(trimmedEmail);
       const freshMe = await api.me();
       onMeUpdate(freshMe);
-      setAddress("");
+      setEmail("");
       setSuccessMsg(`Demande enregistrée : ${res.usdtAmount} USDT, payé lundi prochain.`);
       const historyRes = await api.withdrawHistory();
       setHistory(historyRes.withdrawals);
     } catch (err) {
       const code = err instanceof ApiError ? err.message : "network_error";
       setErrorMsg(ERROR_MESSAGES[code] ?? "Une erreur est survenue.");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
@@ -99,11 +104,26 @@ export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
         <span className="text-xs text-sage">{me.coins} coins · {COINS_PER_USDT.toLocaleString()} coins = 1 USDT</span>
       </div>
 
-      <p className="text-xs text-sage">
-        Paiement en USDT (réseau TRC-20) via FaucetPay, chaque lundi à 00:00 UTC. Ton adresse doit être{" "}
-        <span className="text-cream">liée à un compte FaucetPay</span> au préalable (FaucetPay → Linked
-        Addresses → Tether TRC20).
-      </p>
+      <div className="text-xs text-sage bg-surface border border-surface-2 rounded-xl p-4">
+        <p className="font-semibold text-cream mb-1">📧 Retrait par email FaucetPay</p>
+        <p>
+          Entre simplement <span className="text-cream">l'adresse email</span> liée à ton compte{" "}
+          <span className="text-gold">FaucetPay</span>. Le paiement sera envoyé directement sur ce compte
+          chaque lundi à 00:00 UTC.
+        </p>
+        <p className="mt-2">
+          Pas encore de compte FaucetPay ?{" "}
+          <a
+            href="https://faucetpay.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gold underline"
+          >
+            Inscris-toi ici
+          </a>{" "}
+          (gratuit).
+        </p>
+      </div>
 
       {!canWithdraw && (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3">
@@ -113,21 +133,37 @@ export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
 
       {canWithdraw && (
         <div className="flex flex-col gap-2.5">
+          <label className="text-xs text-sage font-medium ml-1" htmlFor="faucetpay-email">
+            Adresse email FaucetPay
+          </label>
           <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Adresse USDT-TRC20 liée à FaucetPay"
-            className={`rounded-xl bg-surface border px-4 py-3 text-sm text-cream font-mono placeholder:text-sage/50 focus:outline-none ${
-              addressLooksValid ? "border-surface-2 focus:border-gold" : "border-coral"
+            id="faucetpay-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="nom@email.com"
+            autoComplete="email"
+            inputMode="email"
+            className={`rounded-xl bg-surface border px-4 py-3 text-sm text-cream placeholder:text-sage/50 focus:outline-none ${
+              emailLooksValid ? "border-surface-2 focus:border-gold" : "border-coral"
             }`}
           />
-          {!addressLooksValid && (
-            <p className="text-xs text-coral">Format inattendu — une adresse TRC20 commence par "T" et fait 34 caractères.</p>
+
+          {trimmedEmail && !emailLooksValid && (
+            <p className="text-xs text-coral flex items-center gap-1.5">
+              ⚠ Format d'email invalide — exemple : nom@email.com
+            </p>
           )}
+
+          {trimmedEmail && emailLooksValid && (
+            <p className="text-xs text-mint flex items-center gap-1.5">
+              ✅ Format d'email valide
+            </p>
+          )}
+
           <button
             onClick={handleSubmit}
-            disabled={!trimmedAddress || !addressLooksValid || submitting}
+            disabled={!trimmedEmail || !emailLooksValid || submitting}
             className="rounded-xl bg-gold text-ink font-bold py-3.5 active:scale-[0.98] transition-transform disabled:opacity-50 disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-soft"
           >
             {submitting ? "Vérification…" : "Demander le retrait"}
@@ -135,8 +171,17 @@ export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
         </div>
       )}
 
-      {errorMsg && <p className="text-sm text-coral text-center">{errorMsg}</p>}
-      {successMsg && <p className="text-sm text-mint text-center">{successMsg}</p>}
+      {errorMsg && (
+        <div className="text-sm text-coral text-center bg-coral/10 border border-coral/30 rounded-xl px-4 py-3">
+          {errorMsg}
+        </div>
+      )}
+      
+      {successMsg && (
+        <div className="text-sm text-mint text-center bg-mint/10 border border-mint/30 rounded-xl px-4 py-3">
+          {successMsg}
+        </div>
+      )}
 
       {history && history.length > 0 && (
         <div className="flex flex-col gap-2 mt-2">
@@ -150,7 +195,9 @@ export function WithdrawScreen({ me, api, onBack, onMeUpdate }: Props) {
                 <p className="font-mono text-sm text-cream">{w.usdt_amount.toFixed(2)} USDT</p>
                 <p className="text-xs text-sage">{new Date(w.requested_at).toLocaleDateString("fr-FR")}</p>
               </div>
-              <span className={`text-xs font-semibold ${STATUS_COLOR[w.status]}`}>{STATUS_LABEL[w.status]}</span>
+              <span className={`text-xs font-semibold ${STATUS_COLOR[w.status]}`}>
+                {STATUS_LABEL[w.status]}
+              </span>
             </div>
           ))}
         </div>

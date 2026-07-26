@@ -3,7 +3,7 @@ import { telegramAuth, type AuthEnv } from "../middleware/auth";
 import {
   coinsToUsdt,
   usdtToCoins,
-  isValidTrc20Address,
+  isValidFaucetPayEmail,
   MIN_WITHDRAWAL_USDT,
   MIN_WITHDRAWAL_COINS,
 } from "@memory-match/shared";
@@ -37,7 +37,7 @@ withdraw.post("/", telegramAuth, async (c) => {
   }
   // Validation de forme avant même d'appeler FaucetPay (rejette les entrées
   // absurdes/malveillantes gratuitement, sans consommer de quota API externe).
-  if (!isValidTrc20Address(address)) {
+  if (!isValidFaucetPayEmail(address)) {
     return c.json({ error: "invalid_address_format" }, 400);
   }
 
