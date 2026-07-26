@@ -26,7 +26,7 @@ const INTERSTITIAL_EVERY_N_GAMES = 3;
 const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask"];
 
 export default function App() {
-  const { user, initData, isReady, haptic } = useTelegram();
+  const { initData, isReady, haptic } = useTelegram();
   const api = useMemo(() => createApiClient(initData), [initData]);
   const interstitialAd = useAdsgram(import.meta.env.VITE_ADSGRAM_INTERSTITIAL_BLOCK_ID);
 
