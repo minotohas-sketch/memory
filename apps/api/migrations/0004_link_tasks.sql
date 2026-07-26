@@ -4,9 +4,9 @@
 -- vérifié dans routes/link-task.ts sont notre seule ligne de défense.
 
 CREATE TABLE link_tasks (
-  id TEXT PRIMARY KEY, -- token opaque, généré côté serveur
+  id TEXT PRIMARY KEY, 
   user_id INTEGER NOT NULL REFERENCES users(id),
-  status TEXT NOT NULL DEFAULT 'pending', -- pending | verified | expired
+  status TEXT NOT NULL DEFAULT 'pending', 
   created_at INTEGER NOT NULL,
   verified_at INTEGER
 );
