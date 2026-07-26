@@ -13,13 +13,17 @@ import { TasksScreen } from "./components/TasksScreen";
 import { useStableCooldown } from "./lib/useStableCooldown";
 import { WithdrawScreen } from "./components/WithdrawScreen";
 import { LinkTaskScreen } from "./components/LinkTaskScreen";
+import { BottomNav } from "./components/BottomNav";
 
-type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask";
+export type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask";
 
 // Cadence volontairement simple (compteur en mémoire, pas persisté) : un
 // interstitiel toutes les 3 parties, affiché au retour vers la sélection de
 // niveau plutôt que pile sur l'écran de résultat pour ne pas le télescoper.
 const INTERSTITIAL_EVERY_N_GAMES = 3;
+
+// Écrans où la bottom nav est visible
+const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask"];
 
 export default function App() {
   const { user, initData, isReady, haptic } = useTelegram();
@@ -129,12 +133,6 @@ export default function App() {
         <LevelSelect
           levels={LEVELS}
           onSelect={handleSelectLevel}
-          onShowLeaderboard={() => setScreen("leaderboard")}
-          onShowReferral={() => setScreen("referral")}
-          onShowTasks={() => setScreen("tasks")}
-          onShowWithdraw={() => setScreen("withdraw")}
-          onShowLinkTask={() => setScreen("linktask")}
-          playerName={user.first_name}
           me={me}
           api={api}
           onMeUpdate={setMe}
@@ -185,6 +183,11 @@ export default function App() {
 
       {screen === "linktask" && (
         <LinkTaskScreen api={api} onBack={() => setScreen("select")} onMeUpdate={setMe} />
+      )}
+
+      {/* Bottom Nav — cachée en jeu et sur l'écran de résultat */}
+      {SCREENS_WITH_NAV.includes(screen) && (
+        <BottomNav currentScreen={screen} onNavigate={setScreen} />
       )}
     </div>
   );

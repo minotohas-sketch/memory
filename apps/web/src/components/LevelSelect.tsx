@@ -11,461 +11,131 @@ import { useStableCooldown } from "../lib/useStableCooldown";
 import { StatsBar } from "./StatsBar";
 import { RewardAdButton } from "./RewardAdButton";
 
-
 interface Props {
-
   levels: LevelConfig[];
-
-  onSelect:
-    (level:LevelConfig)=>void;
-
-  onShowLeaderboard:()=>void;
-
-  onShowReferral:()=>void;
-
-  onShowTasks:()=>void;
-
-  onShowWithdraw:()=>void;
-
-  onShowLinkTask:()=>void;
-
-
-  playerName:string;
-
-  me:MeResponse;
-
-  api:ApiClient;
-
-  onMeUpdate:
-    (me:MeResponse)=>void;
-
+  onSelect: (level: LevelConfig) => void;
+  me: MeResponse;
+  api: ApiClient;
+  onMeUpdate: (me: MeResponse) => void;
 }
 
-
-
 export function LevelSelect({
-
   levels,
-
   onSelect,
-
-  onShowLeaderboard,
-
-  onShowReferral,
-
-  onShowTasks,
-
-  onShowWithdraw,
-
-  onShowLinkTask,
-
-  playerName,
-
   me,
-
   api,
-
   onMeUpdate,
-
-}:Props){
-
-
-
+}: Props) {
   /*
     ADSGRAM
   */
+  const adsgramEnergy = useRewardAd(
+    import.meta.env.VITE_ADSGRAM_ENERGY_BLOCK_ID,
+    api,
+    onMeUpdate
+  );
 
-  const adsgramEnergy =
-    useRewardAd(
-      import.meta.env.VITE_ADSGRAM_ENERGY_BLOCK_ID,
-      api,
-      onMeUpdate
-    );
-
-
-  const adsgramCoins =
-    useRewardAd(
-      import.meta.env.VITE_ADSGRAM_BONUS_BLOCK_ID,
-      api,
-      onMeUpdate
-    );
-
-
+  const adsgramCoins = useRewardAd(
+    import.meta.env.VITE_ADSGRAM_BONUS_BLOCK_ID,
+    api,
+    onMeUpdate
+  );
 
   /*
     MONETAG
   */
-
-  const monetagCoins =
-    useMonetagEarnCoins(
-      api,
-      onMeUpdate
-    );
-
-
-  const monetagEnergy =
-    useMonetagEnergyRefill(
-      api,
-      onMeUpdate
-    );
+  const monetagCoins = useMonetagEarnCoins(api, onMeUpdate);
+  const monetagEnergy = useMonetagEnergyRefill(api, onMeUpdate);
 
   /*
     COOLDOWNS STABILISÉS
-    (server + prédiction locale, voir useStableCooldown.ts —
-    contourne la cohérence éventuelle de KV sur un reload rapide)
   */
   const adsgramEnergyCooldown = useStableCooldown("energy_refill", me.adCooldowns.energy_refill ?? 0);
   const adsgramCoinsCooldown = useStableCooldown("bonus_coins", me.adCooldowns.bonus_coins ?? 0);
   const monetagEnergyCooldown = useStableCooldown("monetag_energy_refill", me.adCooldowns.monetag_energy_refill ?? 0);
   const monetagCoinsCooldown = useStableCooldown("monetag_earn_coins", me.adCooldowns.monetag_earn_coins ?? 0);
 
-
-
-
   return (
-
-<div className="
-flex flex-col gap-5
-px-5
-pt-[calc(env(safe-area-inset-top)+1.5rem)]
-pb-8
-max-w-md
-mx-auto
-">
-
-
-
-<header className="text-center">
-
-<p className="text-sm text-sage">
-Bienvenue, {playerName}
-</p>
-
-
-<h1 className="
-font-display
-text-4xl
-font-semibold
-text-cream
-mt-1
-">
-Memory Match
-</h1>
-
-
-</header>
-
-
-
-
-<StatsBar me={me}/>
-
-
-
-
-
-{/* ADSGRAM */}
-
-<div className="flex gap-2.5">
-
-
-<RewardAdButton
-
-label="+1 énergie"
-
-icon="⚡"
-
-status={adsgramEnergy.status}
-
-onClick={adsgramEnergy.watch}
-
-disabled={
-  me.energy >= me.energy_max
-}
-
-cooldownSeconds={
-  adsgramEnergyCooldown
-}
-
-/>
-
-
-
-<RewardAdButton
-
-label="+30 coins"
-
-icon="🪙"
-
-status={adsgramCoins.status}
-
-onClick={adsgramCoins.watch}
-
-cooldownSeconds={
-  adsgramCoinsCooldown
-}
-
-/>
-
-
-</div>
-
-
-
-
-
-
-{/* MONETAG */}
-
-<div className="flex gap-2.5 -mt-2">
-
-
-<RewardAdButton
-
-label="+3 énergie"
-
-icon="⚡"
-
-status={monetagEnergy.status}
-
-onClick={monetagEnergy.watch}
-
-disabled={
-  me.energy >= me.energy_max
-}
-
-cooldownSeconds={
-  monetagEnergyCooldown
-}
-
-/>
-
-
-
-<RewardAdButton
-
-label="+50 coins"
-
-icon="🪙"
-
-status={monetagCoins.status}
-
-onClick={monetagCoins.watch}
-
-cooldownSeconds={
-  monetagCoinsCooldown
-}
-
-/>
-
-
-
-</div>
-
-
-
-
-
-
-
-{
-me.energy < 1 && (
-
-<p className="
-text-xs
-text-coral
-text-center
--mt-2
-">
-
-Plus d'énergie pour lancer une partie —
-regarde une pub ou attends.
-
-</p>
-
-)
-}
-
-
-
-
-
-
-
-<div className="flex flex-col gap-3">
-
-
-{
-levels.map(
-(level,i)=>(
-
-
-<button
-
-key={level.id}
-
-onClick={()=>
-  onSelect(level)
-}
-
-disabled={
-  me.energy < 1
-}
-
-className="
-group
-relative
-flex
-items-center
-justify-between
-rounded-2xl
-bg-surface
-border
-border-surface-2
-px-5
-py-4
-text-left
-transition-all
-disabled:opacity-40
-"
-
-
->
-
-
-<div>
-
-
-<div className="flex gap-2 items-center">
-
-
-<span className="font-mono text-xs text-gold">
-
-{String(i+1).padStart(2,"0")}
-
-</span>
-
-
-<span className="
-font-display
-text-xl
-font-semibold
-text-cream
-">
-
-{level.name}
-
-</span>
-
-
-</div>
-
-
-
-<p className="
-text-xs
-text-sage
-mt-1
-">
-
-{level.cols}×{level.rows}
- · {level.pairs} paires
- · {level.timeLimitSeconds}s
-
-</p>
-
-
-</div>
-
-
-
-<div className="
-font-mono
-text-gold
-font-bold
-">
-
-+{level.baseReward}
-
-</div>
-
-
-</button>
-
-
-))
-}
-
-
-</div>
-
-
-
-
-
-
-
-<div className="
-flex
-justify-center
-gap-4
-mt-1
-flex-wrap
-">
-
-
-<button
-onClick={onShowLeaderboard}
-className="text-sm text-sage"
->
-🏆 Classement
-</button>
-
-
-
-<button
-onClick={onShowReferral}
-className="text-sm text-sage"
->
-👥 Inviter
-</button>
-
-
-
-<button
-onClick={onShowTasks}
-className="text-sm text-sage"
->
-📋 Tâches
-</button>
-
-
-
-<button
-onClick={onShowWithdraw}
-className="text-sm text-sage"
->
-💸 Retirer
-</button>
-
-
-
-<button
-onClick={onShowLinkTask}
-className="text-sm text-sage"
->
-🔗 Lien bonus
-</button>
-
-
-
-</div>
-
-
-
-
-</div>
-
+    <div className="flex flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-24 max-w-md mx-auto">
+      {/* Header — titre uniquement, le nom est dans StatsBar */}
+      <header className="text-center">
+        <h1 className="font-display text-4xl font-semibold text-cream mt-1">
+          Memory Match
+        </h1>
+      </header>
+
+      <StatsBar me={me} />
+
+      {/* ADSGRAM */}
+      <div className="flex gap-2.5">
+        <RewardAdButton
+          label="+1 énergie"
+          icon="⚡"
+          status={adsgramEnergy.status}
+          onClick={adsgramEnergy.watch}
+          disabled={me.energy >= me.energy_max}
+          cooldownSeconds={adsgramEnergyCooldown}
+        />
+        <RewardAdButton
+          label="+30 coins"
+          icon="🪙"
+          status={adsgramCoins.status}
+          onClick={adsgramCoins.watch}
+          cooldownSeconds={adsgramCoinsCooldown}
+        />
+      </div>
+
+      {/* MONETAG */}
+      <div className="flex gap-2.5 -mt-2">
+        <RewardAdButton
+          label="+3 énergie"
+          icon="⚡"
+          status={monetagEnergy.status}
+          onClick={monetagEnergy.watch}
+          disabled={me.energy >= me.energy_max}
+          cooldownSeconds={monetagEnergyCooldown}
+        />
+        <RewardAdButton
+          label="+50 coins"
+          icon="🪙"
+          status={monetagCoins.status}
+          onClick={monetagCoins.watch}
+          cooldownSeconds={monetagCoinsCooldown}
+        />
+      </div>
+
+      {me.energy < 1 && (
+        <p className="text-xs text-coral text-center -mt-2">
+          Plus d'énergie pour lancer une partie — regarde une pub ou attends.
+        </p>
+      )}
+
+      {/* Niveaux */}
+      <div className="flex flex-col gap-3">
+        {levels.map((level, i) => (
+          <button
+            key={level.id}
+            onClick={() => onSelect(level)}
+            disabled={me.energy < 1}
+            className="group relative flex items-center justify-between rounded-2xl bg-surface border border-surface-2 px-5 py-4 text-left transition-all disabled:opacity-40 active:scale-[0.98]"
+          >
+            <div>
+              <div className="flex gap-2 items-center">
+                <span className="font-mono text-xs text-gold">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="font-display text-xl font-semibold text-cream">
+                  {level.name}
+                </span>
+              </div>
+              <p className="text-xs text-sage mt-1">
+                {level.cols}×{level.rows} · {level.pairs} paires · {level.timeLimitSeconds}s
+              </p>
+            </div>
+            <div className="font-mono text-gold font-bold">+{level.baseReward}</div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
-
 }
