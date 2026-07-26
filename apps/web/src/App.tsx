@@ -13,9 +13,10 @@ import { TasksScreen } from "./components/TasksScreen";
 import { useStableCooldown } from "./lib/useStableCooldown";
 import { WithdrawScreen } from "./components/WithdrawScreen";
 import { LinkTaskScreen } from "./components/LinkTaskScreen";
+import { PtcScreen } from "./components/PtcScreen";
 import { BottomNav } from "./components/BottomNav";
 
-export type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask";
+export type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask" |"ptc";
 
 // Cadence volontairement simple (compteur en mémoire, pas persisté) : un
 // interstitiel toutes les 3 parties, affiché au retour vers la sélection de
@@ -23,7 +24,7 @@ export type Screen = "select" | "playing" | "result" | "leaderboard" | "referral
 const INTERSTITIAL_EVERY_N_GAMES = 3;
 
 // Écrans où la bottom nav est visible
-const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask"];
+const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask", "ptc"];
 
 export default function App() {
   const { initData, isReady, haptic } = useTelegram();
