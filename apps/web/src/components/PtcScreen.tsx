@@ -9,12 +9,12 @@ interface PtcTask {
 const PTC_TASKS: PtcTask[] = [
   {
     id: "monetag_smartlink",
-    label: "Smartlink Monetag",
+    label: "PTC",
     url: "https://ton-liens-monetag.com", // ⚠️ Remplace par ton vrai lien
   },
   {
     id: "adsterra_smartlink",
-    label: "Smartlink Adsterra",
+    label: "PTC",
     url: "https://ton-liens-adsterra.com", // ⚠️ Remplace par ton vrai lien
   },
 ];
