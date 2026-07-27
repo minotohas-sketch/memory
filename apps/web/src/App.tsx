@@ -15,8 +15,8 @@ import { WithdrawScreen } from "./components/WithdrawScreen";
 import { LinkTaskScreen } from "./components/LinkTaskScreen";
 import { PtcScreen } from "./components/PtcScreen";
 import { BottomNav } from "./components/BottomNav";
-
-type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask" | ptc;
+import type { Screen } from "./types";
+//type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask" | ptc;
 
 // Cadence volontairement simple (compteur en mémoire, pas persisté) : un
 // interstitiel toutes les 3 parties, affiché au retour vers la sélection de

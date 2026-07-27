@@ -1,4 +1,4 @@
-import type { Screen } from "../App";
+import type { Screen } from "./types";
 
 interface NavItem {
   screen: Screen;
@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { screen: "select", label: "Jouer", icon: "🎮" },
   { screen: "tasks", label: "Tâches", icon: "📋" },
   { screen: "leaderboard", label: "Top", icon: "🏆" },
+   {screen: "linktask", label:"Shortlink", icon:"🔗"},
   { screen: "referral", label: "Amis", icon: "👥" },
   { screen: "withdraw", label: "Retirer", icon: "💳" },
 ];
