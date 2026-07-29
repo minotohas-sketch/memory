@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ApiClient, MeResponse } from "../lib/api";
 import { useRewardAd } from "../lib/useRewardAd";
 import { useMonetagEarnCoins } from "../lib/useMonetag";
@@ -31,33 +31,44 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
   // Tâches pub
   const taskCooldown = useStableCooldown("task", me.adCooldowns.task ?? 0);
 
-  // PTC state
+  // ============ PTC ============
   const [ptcToken, setPtcToken] = useState<string | null>(null);
+  const [ptcUrl, setPtcUrl] = useState<string | null>(null);
   const [ptcTimer, setPtcTimer] = useState(0);
-  const [ptcRequired, setPtcRequired] = useState(30);
+  const [ptcWait, setPtcWait] = useState(30);
   const [ptcReward, setPtcReward] = useState(50);
   const [ptcStatus, setPtcStatus] = useState<"idle" | "waiting" | "claiming" | "done">("idle");
   const [ptcError, setPtcError] = useState<string | null>(null);
   const [ptcSuccess, setPtcSuccess] = useState<string | null>(null);
   const [ptcCooldown, setPtcCooldown] = useState(0);
 
-  // PTC tasks
-  const PTC_TASKS = [
-    { id: "monetag_smartlink", label: "Smartlink Monetag", url: "https://omg10.com/4/11454935" },
-    { id: "adsterra_smartlink", label: "Smartlink Adsterra", url: "https://omg10.com/4/11454936" },
-  ];
+  // Compte à rebours du cooldown PTC
+  useEffect(() => {
+    if (ptcCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setPtcCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [ptcCooldown]);
 
-  const handlePtcStart = async (taskId: string, url: string) => {
+  const handlePtcStart = async () => {
     setPtcError(null);
     setPtcSuccess(null);
     try {
-      const res = await api.ptcStart(taskId);
+      const res = await api.ptcStart("ptc");
       setPtcToken(res.token);
-      setPtcRequired(res.waitSeconds);
+      setPtcUrl(res.url);
+      setPtcWait(res.waitSeconds);
       setPtcReward(res.rewardCoins);
       setPtcTimer(res.waitSeconds);
       setPtcStatus("waiting");
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(res.url, "_blank", "noopener,noreferrer");
 
       const interval = setInterval(() => {
         setPtcTimer((prev) => {
@@ -69,8 +80,13 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
         });
       }, 1000);
     } catch (err: any) {
-      setPtcError(err?.message === "rate_limited" ? "Reviens dans 1 minute." : "Erreur.");
-      setTimeout(() => setPtcError(null), 3000);
+      if (err?.message === "rate_limited") {
+        setPtcError("PTC déjà fait aujourd'hui. Reviens demain !");
+        setPtcCooldown(86400);
+      } else {
+        setPtcError("Erreur. Réessaie.");
+      }
+      setTimeout(() => setPtcError(null), 4000);
     }
   };
 
@@ -80,19 +96,20 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
     setPtcError(null);
     try {
       const res = await api.ptcClaim(ptcToken);
-      setPtcSuccess(`+${res.coinsEarned} coins !`);
+      setPtcSuccess(`+${res.coinsEarned} coins gagnés !`);
       setPtcStatus("done");
-      setPtcCooldown(60);
+      setPtcCooldown(86400);
+      api.me().then(onMeUpdate).catch(() => {});
       setTimeout(() => {
         setPtcStatus("idle");
         setPtcToken(null);
+        setPtcUrl(null);
         setPtcTimer(0);
         setPtcSuccess(null);
-        setPtcCooldown(0);
-      }, 3000);
+      }, 4000);
     } catch (err: any) {
       if (err?.message === "too_early") {
-        setPtcError("Pas assez attendu !");
+        setPtcError("Pas assez attendu ! Réessaie.");
       } else {
         setPtcError("Erreur, réessaie.");
       }
@@ -100,6 +117,8 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
       setTimeout(() => setPtcError(null), 3000);
     }
   };
+
+  // ============ AUTRES ============
 
   // Tâche pub
   const handleTaskWatch = () => {
@@ -131,14 +150,29 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
     }
   };
 
+  // ============ FORMATS ============
+
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  const formatTimeLong = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  };
+
+  // ============ TABS ============
 
   const tabs: { key: EarnSection; label: string; icon: string }[] = [
     { key: "tasks", label: "Pubs", icon: "📺" },
     { key: "ptc", label: "PTC", icon: "🔗" },
-    { key: "linktask", label: "Lien", icon: "🔗" },
+    { key: "linktask", label: "Lien", icon: "🌐" },
     { key: "referral", label: "Amis", icon: "👥" },
   ];
+
+  // ============ RENDER ============
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-24 max-w-md mx-auto">
@@ -163,7 +197,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
         ))}
       </div>
 
-      {/* SECTION PUBS */}
+      {/* ============ SECTION PUBS ============ */}
       {section === "tasks" && (
         <div className="flex flex-col gap-4">
           <div className="text-xs text-sage bg-surface border border-surface-2 rounded-xl p-4">
@@ -186,27 +220,32 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
         </div>
       )}
 
-      {/* SECTION PTC */}
+      {/* ============ SECTION PTC ============ */}
       {section === "ptc" && (
         <div className="flex flex-col gap-4">
+          {/* Info */}
           <div className="text-xs text-sage bg-surface border border-surface-2 rounded-xl p-4">
-            <p className="font-semibold text-cream mb-1">💡 PTC</p>
+            <p className="font-semibold text-cream mb-1">💡 Gagner {ptcReward} coins</p>
             <ol className="list-decimal list-inside space-y-1">
               <li>Ouvre le lien</li>
-              <li>Attends {ptcRequired}s</li>
-              <li>Reviens cliquer "Réclamer"</li>
+              <li>Reste <span className="text-gold">{ptcWait} secondes</span> sur la page</li>
+              <li>Reviens et clique sur <span className="text-gold">"Réclamer"</span></li>
             </ol>
+            <p className="mt-2 text-xs text-sage/60">1 fois par jour · +{ptcReward} coins</p>
           </div>
 
+          {/* Timer actif */}
           {ptcStatus === "waiting" && (
             <div className="rounded-2xl bg-gold/10 border border-gold/30 p-6 text-center">
-              <p className="text-gold font-semibold mb-2">⏳ Patiente…</p>
+              <p className="text-gold font-semibold mb-2">⏳ Patiente sur la page ouverte…</p>
               <p className="font-mono text-4xl font-bold text-gold">{formatTime(ptcTimer)}</p>
               <button
                 onClick={handlePtcClaim}
                 disabled={ptcTimer > 0}
                 className={`mt-4 w-full rounded-xl py-3 font-bold text-sm transition-all active:scale-[0.98] ${
-                  ptcTimer > 0 ? "bg-gold/30 text-gold/50 cursor-not-allowed" : "bg-gold text-ink"
+                  ptcTimer > 0
+                    ? "bg-gold/30 text-gold/50 cursor-not-allowed"
+                    : "bg-gold text-ink hover:shadow-[0_0_16px_rgba(212,168,83,0.3)]"
                 }`}
               >
                 {ptcTimer > 0 ? `Encore ${formatTime(ptcTimer)}…` : "🎁 Réclamer mes coins"}
@@ -214,34 +253,46 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
             </div>
           )}
 
+          {/* Claiming */}
           {ptcStatus === "claiming" && (
             <div className="rounded-2xl bg-surface border border-surface-2 p-6 text-center">
-              <p className="text-gold font-semibold animate-pulse">Vérification…</p>
+              <p className="text-gold font-semibold animate-pulse">Vérification par le serveur…</p>
             </div>
           )}
 
-          {ptcError && <p className="text-sm text-coral text-center">{ptcError}</p>}
-          {ptcSuccess && <p className="text-sm text-mint text-center animate-bounce">{ptcSuccess}</p>}
-
-          {ptcCooldown > 0 && ptcStatus === "idle" && (
-            <p className="text-sm text-sage text-center">⏳ Prochain PTC dans {formatTime(ptcCooldown)}</p>
+          {/* Messages */}
+          {ptcError && (
+            <div className="text-sm text-coral text-center bg-coral/10 border border-coral/30 rounded-xl px-4 py-3">
+              {ptcError}
+            </div>
+          )}
+          {ptcSuccess && (
+            <div className="text-sm text-mint text-center bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 animate-bounce">
+              {ptcSuccess}
+            </div>
           )}
 
-          {PTC_TASKS.map((task) => (
+          {/* Cooldown */}
+          {ptcCooldown > 0 && ptcStatus === "idle" && (
+            <div className="rounded-2xl bg-surface border border-surface-2 p-5 text-center">
+              <p className="text-sage text-sm">⏳ Prochain PTC disponible dans</p>
+              <p className="font-mono text-2xl font-bold text-gold mt-1">{formatTimeLong(ptcCooldown)}</p>
+            </div>
+          )}
+
+          {/* Bouton principal */}
+          {ptcStatus === "idle" && ptcCooldown === 0 && (
             <button
-              key={task.id}
-              onClick={() => handlePtcStart(task.id, task.url)}
-              disabled={ptcStatus !== "idle" || ptcCooldown > 0}
-              className="rounded-2xl bg-surface border border-surface-2 px-5 py-4 text-left disabled:opacity-50"
+              onClick={handlePtcStart}
+              className="rounded-2xl bg-gold text-ink font-bold py-4 text-center active:scale-[0.98] transition-transform hover:shadow-[0_0_16px_rgba(212,168,83,0.3)]"
             >
-              <p className="text-cream font-semibold text-sm">{task.label}</p>
-              <p className="text-xs text-sage mt-0.5">{ptcRequired}s · +{ptcReward} coins</p>
+              🔗 Ouvrir le lien · +{ptcReward} coins
             </button>
-          ))}
+          )}
         </div>
       )}
 
-      {/* SECTION LIEN BONUS */}
+      {/* ============ SECTION LIEN BONUS ============ */}
       {section === "linktask" && (
         <div className="flex flex-col gap-4">
           <div className="text-xs text-sage bg-surface border border-surface-2 rounded-xl p-4">
@@ -260,7 +311,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
         </div>
       )}
 
-      {/* SECTION AMIS / PARRAINAGE */}
+      {/* ============ SECTION AMIS ============ */}
       {section === "referral" && (
         <div className="flex flex-col gap-4">
           <div className="text-xs text-sage bg-surface border border-surface-2 rounded-xl p-4">
