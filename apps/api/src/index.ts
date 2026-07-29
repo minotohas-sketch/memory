@@ -12,6 +12,7 @@ import monetagRoutes from "./routes/monetag";
 import withdrawRoutes from "./routes/withdraw";
 import adminRoutes from "./routes/admin";
 import linkTaskRoutes from "./routes/link-task";
+import ptcRoutes from "./routes/ptc";
 import { sendFaucetPayPayment } from "./lib/faucetpay";
 import { queuePendingWithdrawals } from "./lib/withdrawals";
 import { logAudit } from "./lib/audit";
@@ -36,6 +37,7 @@ app.route("/api/monetag", monetagRoutes);
 app.route("/api/withdraw", withdrawRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/link-task", linkTaskRoutes);
+app.route("/api/ptc", ptcRoutes);
 
 // Panel admin auto-contenu (voir admin-page.ts) — la page est publique, les
 // données qu'elle affiche viennent de /api/admin/* protégées par ADMIN_API_KEY.
@@ -80,8 +82,6 @@ async function processWithdrawal(withdrawalId: number, env: CloudflareBindings):
   try {
     result = await sendFaucetPayPayment(env.FAUCETPAY_API_KEY, withdrawal.address, withdrawal.usdt_amount);
   } catch (err) {
-    // Erreur réseau/transitoire : on repasse en "queued" et on laisse
-    // Cloudflare Queues retenter le message (max_retries dans wrangler.jsonc).
     await env.DB.prepare("UPDATE withdrawals SET status = 'queued' WHERE id = ?").bind(withdrawalId).run();
     throw err;
   }
@@ -96,18 +96,12 @@ async function processWithdrawal(withdrawalId: number, env: CloudflareBindings):
   }
 
   if (result.errorCode === FAUCETPAY_INSUFFICIENT_FUNDS_CODE) {
-    // Solde FaucetPay insuffisant — c'est un problème de TON côté, pas celui
-    // du joueur. On remet en "pending" (pas de remboursement) : ça repartira
-    // tout seul au prochain cron une fois rechargé, ou via le bouton admin
-    // "traiter maintenant" — voir /admin.
     await env.DB.prepare("UPDATE withdrawals SET status = 'pending', error = ? WHERE id = ?")
       .bind(`${result.errorCode}: solde FaucetPay insuffisant, recharge ton compte`, withdrawalId)
       .run();
     return;
   }
 
-  // Autres échecs définitifs (adresse invalide entre-temps, etc.) : pas la
-  // peine de retenter la même requête, on rembourse et on log pour le panel admin.
   await env.DB.batch([
     env.DB.prepare("UPDATE withdrawals SET status = 'failed', error = ? WHERE id = ?").bind(
       `${result.errorCode}: ${result.errorMessage ?? "unknown"}`,
