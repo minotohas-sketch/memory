@@ -24,7 +24,7 @@ import type { Screen } from "./types";
 const INTERSTITIAL_EVERY_N_GAMES = 3;
 
 // Écrans où la bottom nav est visible
-const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask", "ptc"];
+//const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask", "ptc"];
 
 export default function App() {
   const { initData, isReady, haptic } = useTelegram();
