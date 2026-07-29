@@ -1,1 +1,1 @@
-export type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask" | "ptc";
+export type Screen = "select" | "playing" | "result" | "leaderboard" | "earn" | "withdraw";

@@ -8,23 +8,13 @@ import { LevelSelect } from "./components/LevelSelect";
 import { GameBoard } from "./components/GameBoard";
 import { ResultScreen } from "./components/ResultScreen";
 import { Leaderboard } from "./components/Leaderboard";
-import { ReferralScreen } from "./components/ReferralScreen";
-import { TasksScreen } from "./components/TasksScreen";
-import { useStableCooldown } from "./lib/useStableCooldown";
 import { WithdrawScreen } from "./components/WithdrawScreen";
-import { LinkTaskScreen } from "./components/LinkTaskScreen";
-import { PtcScreen } from "./components/PtcScreen";
+import { EarnScreen } from "./components/EarnScreen";
 import { BottomNav } from "./components/BottomNav";
 import type { Screen } from "./types";
-//type Screen = "select" | "playing" | "result" | "leaderboard" | "referral" | "tasks" | "withdraw" | "linktask" | ptc;
 
-// Cadence volontairement simple (compteur en mémoire, pas persisté) : un
-// interstitiel toutes les 3 parties, affiché au retour vers la sélection de
-// niveau plutôt que pile sur l'écran de résultat pour ne pas le télescoper.
 const INTERSTITIAL_EVERY_N_GAMES = 3;
-
-// Écrans où la bottom nav est visible
-//const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "referral", "tasks", "withdraw", "linktask", "ptc"];
+const SCREENS_WITH_NAV: Screen[] = ["select", "leaderboard", "earn", "withdraw"];
 
 export default function App() {
   const { initData, isReady, haptic } = useTelegram();
@@ -40,10 +30,6 @@ export default function App() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
 
-  // Doit être appelé avant tout retour anticipé (règle des hooks) — d'où le
-  // repli `?? 0` tant que `me` n'est pas encore chargé.
-  const taskCooldown = useStableCooldown("task", me?.adCooldowns.task ?? 0);
-
   useEffect(() => {
     if (!isReady) return;
     let cancelled = false;
@@ -53,34 +39,21 @@ export default function App() {
         if (!cancelled) setMe(res.user);
       })
       .catch(() => {
-        if (!cancelled) {
-          setBootError(
-            "Impossible de se connecter au serveur. Vérifie que l'API tourne (pnpm run dev:api)."
-          );
-        }
+        if (!cancelled) setBootError("Impossible de se connecter au serveur.");
       });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [isReady]);
 
-  const handleFinish = useCallback(
-    (result: FinishGameResponse) => {
-      setLastResult(result);
-      setMe(result.user);
-      setScreen("result");
-      if (result.won) haptic.match();
-      else haptic.fail();
-    },
-    [haptic]
-  );
+  const handleFinish = useCallback((result: FinishGameResponse) => {
+    setLastResult(result);
+    setMe(result.user);
+    setScreen("result");
+    if (result.won) haptic.match();
+    else haptic.fail();
+  }, [haptic]);
 
   const { cards, flipCard, moves, matchedCount, secondsLeft, phase, error } = useGameEngine(
-    screen === "playing" ? activeLevel : null,
-    roundId,
-    api,
-    handleFinish
+    screen === "playing" ? activeLevel : null, roundId, api, handleFinish
   );
 
   const handleSelectLevel = (level: LevelConfig) => {
@@ -102,8 +75,6 @@ export default function App() {
   const handleBackToLevels = () => {
     const next = gamesSinceInterstitial + 1;
     if (next >= INTERSTITIAL_EVERY_N_GAMES) {
-      // Best-effort : si aucune pub n'est chargée (bloqueur, pas encore
-      // modéré côté Adsgram...), on ignore simplement l'échec.
       interstitialAd.show().catch(() => {});
       setGamesSinceInterstitial(0);
     } else {
@@ -131,65 +102,29 @@ export default function App() {
   return (
     <div className="min-h-screen bg-ink">
       {screen === "select" && (
-        <LevelSelect
-          levels={LEVELS}
-          onSelect={handleSelectLevel}
-          me={me}
-          api={api}
-          onMeUpdate={setMe}
-        />
+        <LevelSelect levels={LEVELS} onSelect={handleSelectLevel} me={me} api={api} onMeUpdate={setMe} />
       )}
 
-     {screen === "ptc" && (
-        <PtcScreen api={api} onBack={() => setScreen("select")} />
-      )}
       {screen === "playing" && activeLevel && (
-        <GameBoard
-          level={activeLevel}
-          cards={cards}
-          secondsLeft={secondsLeft}
-          matchedCount={matchedCount}
-          moves={moves}
-          phase={phase}
-          error={error}
-          onFlip={handleFlip}
-          onBack={() => setScreen("select")}
-        />
+        <GameBoard level={activeLevel} cards={cards} secondsLeft={secondsLeft} matchedCount={matchedCount} moves={moves} phase={phase} error={error} onFlip={handleFlip} onBack={() => setScreen("select")} />
       )}
 
       {screen === "result" && lastResult && activeLevel && (
-        <ResultScreen
-          result={lastResult}
-          level={activeLevel}
-          onReplay={handleReplay}
-          onBackToLevels={handleBackToLevels}
-        />
+        <ResultScreen result={lastResult} level={activeLevel} onReplay={handleReplay} onBackToLevels={handleBackToLevels} />
       )}
 
-      {screen === "leaderboard" && <Leaderboard api={api} onBack={() => setScreen("select")} />}
-
-      {screen === "referral" && (
-        <ReferralScreen referralCode={me.referral_code} onBack={() => setScreen("select")} />
+      {screen === "leaderboard" && (
+        <Leaderboard api={api} onBack={() => setScreen("select")} />
       )}
 
-      {screen === "tasks" && (
-        <TasksScreen
-          blockId={import.meta.env.VITE_ADSGRAM_TASK_BLOCK_ID}
-          onBack={() => setScreen("select")}
-          onCompleted={() => api.me().then(setMe).catch(() => {})}
-          cooldownSeconds={taskCooldown}
-        />
+      {screen === "earn" && (
+        <EarnScreen api={api} me={me} onMeUpdate={setMe} onBack={() => setScreen("select")} />
       )}
 
       {screen === "withdraw" && (
         <WithdrawScreen me={me} api={api} onBack={() => setScreen("select")} onMeUpdate={setMe} />
       )}
 
-      {screen === "linktask" && (
-        <LinkTaskScreen api={api} onBack={() => setScreen("select")} onMeUpdate={setMe} />
-      )}
-
-      {/* Bottom Nav — cachée en jeu et sur l'écran de résultat */}
       {SCREENS_WITH_NAV.includes(screen) && (
         <BottomNav currentScreen={screen} onNavigate={setScreen} />
       )}
