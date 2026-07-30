@@ -5,12 +5,15 @@ import { logAudit } from "../lib/audit";
 
 const ptc = new Hono<AuthEnv>();
 
-const PTC_REWARDS: Record<string, { coins: number; waitSeconds: number }> = {
-  monetag_smartlink: { coins: 50, waitSeconds: 30 },
-  adsterra_smartlink: { coins: 50, waitSeconds: 30 },
-};
+const PTC_REWARD_COINS = 50;
+const PTC_WAIT_SECONDS = 30;
+const COOLDOWN_SECONDS = 86400; // 24 heures
 
-const COOLDOWN_SECONDS = 60;
+// Liste des smartlinks
+const SMARTLINKS = [
+  "https://omg10.com/4/11454935",
+  "https://omg10.com/4/11454936",
+];
 
 ptc.post("/start", telegramAuth, async (c) => {
   const tgUser = c.get("telegramUser");
@@ -25,12 +28,8 @@ ptc.post("/start", telegramAuth, async (c) => {
     return c.json({ error: "rate_limited", retryAfterSeconds: COOLDOWN_SECONDS }, 429);
   }
 
-  const body = await c.req.json<{ taskId?: string }>().catch(() => ({}));
-  const taskId = body.taskId ?? "";
-
-  if (!taskId || !(taskId in PTC_REWARDS)) {
-    return c.json({ error: "invalid_task" }, 400);
-  }
+  // Choisit un smartlink aléatoire
+  const url = SMARTLINKS[Math.floor(Math.random() * SMARTLINKS.length)];
 
   const token = crypto.randomUUID();
   const now = Date.now();
@@ -39,7 +38,6 @@ ptc.post("/start", telegramAuth, async (c) => {
     `ptc_token:${token}`,
     JSON.stringify({
       userId: tgUser.id,
-      taskId,
       startedAt: now,
     }),
     { expirationTtl: 120 }
@@ -47,8 +45,9 @@ ptc.post("/start", telegramAuth, async (c) => {
 
   return c.json({
     token,
-    waitSeconds: PTC_REWARDS[taskId].waitSeconds,
-    rewardCoins: PTC_REWARDS[taskId].coins,
+    url,
+    waitSeconds: PTC_WAIT_SECONDS,
+    rewardCoins: PTC_REWARD_COINS,
   });
 });
 
@@ -69,7 +68,6 @@ ptc.post("/claim", telegramAuth, async (c) => {
 
   const session = JSON.parse(raw) as {
     userId: number;
-    taskId: string;
     startedAt: number;
   };
 
@@ -77,26 +75,19 @@ ptc.post("/claim", telegramAuth, async (c) => {
     return c.json({ error: "token_user_mismatch" }, 403);
   }
 
-  const taskConfig = PTC_REWARDS[session.taskId];
-  if (!taskConfig) {
-    return c.json({ error: "unknown_task" }, 400);
-  }
-
   const elapsedMs = Date.now() - session.startedAt;
   const elapsedSeconds = Math.floor(elapsedMs / 1000);
 
-  if (elapsedSeconds < taskConfig.waitSeconds) {
+  if (elapsedSeconds < PTC_WAIT_SECONDS) {
     return c.json({
       error: "too_early",
       elapsedSeconds,
-      requiredSeconds: taskConfig.waitSeconds,
-      remainingSeconds: taskConfig.waitSeconds - elapsedSeconds,
+      requiredSeconds: PTC_WAIT_SECONDS,
+      remainingSeconds: PTC_WAIT_SECONDS - elapsedSeconds,
     }, 400);
   }
 
   await c.env.GAME_KV.delete(`ptc_token:${token}`);
-
-  const reward = taskConfig.coins;
 
   const user = await c.env.DB.prepare("SELECT id FROM users WHERE telegram_id = ?")
     .bind(tgUser.id)
@@ -104,15 +95,15 @@ ptc.post("/claim", telegramAuth, async (c) => {
   if (!user) return c.json({ error: "user_not_found" }, 404);
 
   await c.env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?")
-    .bind(reward, user.id)
+    .bind(PTC_REWARD_COINS, user.id)
     .run();
 
-  await logAudit(c.env.DB, String(tgUser.id), "ptc_claimed", session.taskId, {
-    rewardCoins: reward,
+  await logAudit(c.env.DB, String(tgUser.id), "ptc_claimed", "ptc", {
+    rewardCoins: PTC_REWARD_COINS,
     waitedSeconds: elapsedSeconds,
   });
 
-  return c.json({ ok: true, coinsEarned: reward, waitedSeconds: elapsedSeconds });
+  return c.json({ ok: true, coinsEarned: PTC_REWARD_COINS, waitedSeconds: elapsedSeconds });
 });
 
 export default ptc;
