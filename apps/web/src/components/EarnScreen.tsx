@@ -33,7 +33,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
 
   // ============ PTC ============
   const [ptcToken, setPtcToken] = useState<string | null>(null);
-  const [ptcUrl, setPtcUrl] = useState<string | null>(null);
+//  const [ptcUrl, setPtcUrl] = useState<string | null>(null);
   const [ptcTimer, setPtcTimer] = useState(0);
   const [ptcWait, setPtcWait] = useState(30);
   const [ptcReward, setPtcReward] = useState(50);
@@ -103,7 +103,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
       setTimeout(() => {
         setPtcStatus("idle");
         setPtcToken(null);
-        setPtcUrl(null);
+     //   setPtcUrl(null);
         setPtcTimer(0);
         setPtcSuccess(null);
       }, 4000);

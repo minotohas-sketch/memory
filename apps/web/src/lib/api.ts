@@ -202,7 +202,7 @@ export function createApiClient(initData: string) {
         }
       ),
 ptcStart: (taskId: string) =>
-  apiFetch<{ token: string; waitSeconds: number; rewardCoins: number }>(
+  apiFetch<{ token: string; url: string; waitSeconds: number; rewardCoins: number }>(
     "/api/ptc/start",
     initData,
     {
@@ -210,7 +210,6 @@ ptcStart: (taskId: string) =>
       body: JSON.stringify({ taskId }),
     }
   ),
-
 ptcClaim: (token: string) =>
   apiFetch<{ ok: boolean; coinsEarned: number; waitedSeconds: number }>(
     "/api/ptc/claim",
