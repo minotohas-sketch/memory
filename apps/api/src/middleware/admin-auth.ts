@@ -23,3 +23,10 @@ export const adminAuth: MiddlewareHandler<{ Bindings: CloudflareBindings }> = as
   }
   await next();
 };
+
+const provided = c.req.header("X-Admin-Key") ?? "";
+
+console.log("ADMIN_API_KEY exists:", !!c.env.ADMIN_API_KEY);
+console.log("Provided:", JSON.stringify(provided));
+console.log("Expected:", JSON.stringify(c.env.ADMIN_API_KEY));
+console.log("Equal:", timingSafeEqual(provided, c.env.ADMIN_API_KEY ?? ""));
