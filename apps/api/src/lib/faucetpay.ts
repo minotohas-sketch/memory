@@ -1,28 +1,8 @@
-/**
- * Intégration FaucetPay — voir memory-match-spec.md §6.
- *
- * ⚠️ IMPORTANT — 2 valeurs ci-dessous n'ont pas pu être confirmées à 100 % :
- * leur page de doc (faucetpay.io/page/api-documentation) est une SPA rendue
- * en JS, illisible par mes outils de recherche. Ce que j'ai pu confirmer par
- * recherche (endpoint /pay, paramètres, codes d'erreur 456/402, et le fait
- * que leur endpoint balance renvoie du BTC en satoshis) laisse penser que ces
- * valeurs sont correctes, mais VÉRIFIE-les toi-même avant le premier vrai
- * paiement (2 minutes, voir README section Phase 5) :
- *
- * 1. FAUCETPAY_CURRENCY_CODE : appelle listCurrencies et cherche le code
- *    correspondant à "Tether TRC20 (USDT)" dans currencies_names.
- * 2. FAUCETPAY_SMALLEST_UNIT_MULTIPLIER : appelle balance avec ce currency
- *    code, compare le champ brut au champ lisible (comme "balance" vs
- *    "balance_bitcoin" pour BTC) pour en déduire le vrai multiplicateur.
- *
- * Tant que ce n'est pas vérifié, teste avec un tout petit montant vers ton
- * propre compte avant de faire confiance au batch automatique du lundi.
- */
-
 const FAUCETPAY_API_BASE = "https://faucetpay.io/api/v1";
 
-export const FAUCETPAY_CURRENCY_CODE = "USDT"; // ⚠️ à vérifier, voir ci-dessus
-export const FAUCETPAY_SMALLEST_UNIT_MULTIPLIER = 1_000_000; // ⚠️ à vérifier, voir ci-dessus
+// USDT no eken'ny API an'ny FaucetPay matetika ho an'ny TRC20
+export const FAUCETPAY_CURRENCY_CODE = "USDT"; 
+export const FAUCETPAY_SMALLEST_UNIT_MULTIPLIER = 100_000_000; 
 
 function usdtToFaucetPayAmount(usdt: number): string {
   return Math.round(usdt * FAUCETPAY_SMALLEST_UNIT_MULTIPLIER).toString();
@@ -32,26 +12,26 @@ interface FaucetPayRawResponse {
   status: number;
   message?: string;
   payout_id?: string | number;
+  balance?: string;
   [key: string]: unknown;
 }
 
+// Fanamarinana sy fitantanana ny valiny avy any amin'ny FaucetPay (misoroka ny crash raha HTML no mivoaka)
 async function faucetPayRequest(path: string, params: Record<string, string>): Promise<FaucetPayRawResponse> {
   const form = new FormData();
   for (const [key, value] of Object.entries(params)) {
     form.append(key, value);
   }
+  
   const res = await fetch(`${FAUCETPAY_API_BASE}${path}`, { method: "POST", body: form });
-  return res.json();
-}
-
-/** À appeler quand l'utilisateur SOUMET son adresse, pas seulement le jour du batch (spec §6). */
-export async function checkFaucetPayAddress(
-  apiKey: string,
-  address: string,
-  currency: string = FAUCETPAY_CURRENCY_CODE
-): Promise<boolean> {
-  const data = await faucetPayRequest("/checkaddress", { api_key: apiKey, address, currency });
-  return data.status === 200;
+  
+  try {
+    return await res.json() as FaucetPayRawResponse;
+  } catch (e) {
+    const text = await res.text();
+    console.error(`[FaucetPay] Erreur de parsing API sur ${path}. Reponse brute:`, text);
+    return { status: 500, message: "Invalid API response format from FaucetPay" };
+  }
 }
 
 export interface FaucetPayPayResult {
@@ -61,24 +41,41 @@ export interface FaucetPayPayResult {
   errorMessage?: string;
 }
 
+/**
+ * Mandefa vola any amin'ny kaonty FaucetPay amin'ny alalan'ny Email.
+ * ⚠️ Mitaky ny IP an'ilay mpampiasa (userIp) mba tsy holavin'ny FaucetPay.
+ */
 export async function sendFaucetPayPayment(
   apiKey: string,
-  address: string,
+  email: string,
   usdtAmount: number,
+  userIp: string,
   currency: string = FAUCETPAY_CURRENCY_CODE
 ): Promise<FaucetPayPayResult> {
-  const data = await faucetPayRequest("/pay", {
+  
+  // TSY MAINTSY /send fa TSY /pay (ny /pay dia miteraka erreur 404)
+  const data = await faucetPayRequest("/send", {
     api_key: apiKey,
-    to: address,
+    to: email,
     amount: usdtToFaucetPayAmount(usdtAmount),
     currency,
-    referral: "false", // programme de parrainage FaucetPay, pas le nôtre
+    ip_address: userIp,
+    referral: "false",
   });
 
   if (data.status === 200) {
-    return { ok: true, payoutId: data.payout_id !== undefined ? String(data.payout_id) : undefined };
+    return { 
+      ok: true, 
+      payoutId: data.payout_id !== undefined ? String(data.payout_id) : undefined 
+    };
   }
-  return { ok: false, errorCode: data.status, errorMessage: data.message };
+  
+  console.error(`[FaucetPay Withdraw Error] Status: ${data.status}, Message: ${data.message}`);
+  return { 
+    ok: false, 
+    errorCode: data.status, 
+    errorMessage: data.message ?? "Erreur inconnue FaucetPay" 
+  };
 }
 
 export interface FaucetPayBalanceResult {
@@ -88,7 +85,10 @@ export interface FaucetPayBalanceResult {
   errorMessage?: string;
 }
 
-/** Utilisé par le panel admin pour surveiller le solde avant qu'il ne bloque des paiements. */
+/** 
+ * Ampiasaina ao amin'ny Panel Admin hijerena ny solde misy ao amin'ny FaucetPay 
+ * mialohan'ny handefasana batch.
+ */
 export async function getFaucetPayBalance(
   apiKey: string,
   currency: string = FAUCETPAY_CURRENCY_CODE
