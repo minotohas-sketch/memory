@@ -5,8 +5,10 @@ import { checkRateLimit } from "../lib/rate-limit";
 const MAX_ATTEMPTS_PER_WINDOW = 5;
 const WINDOW_SECONDS = 60;
 
+// Auth séparée du flux Telegram.
+// Le panel admin utilise une clé dédiée envoyée via X-Admin-Key.
+// Comparaison à temps constant + rate limit anti brute-force.
 export const adminAuth: MiddlewareHandler<{ Bindings: CloudflareBindings }> = async (c, next) => {
-
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
 
   const { allowed } = await checkRateLimit(
@@ -21,15 +23,18 @@ export const adminAuth: MiddlewareHandler<{ Bindings: CloudflareBindings }> = as
   }
 
   const provided = c.req.header("X-Admin-Key") ?? "";
+  const expected = c.env.ADMIN_API_KEY ?? "";
 
+  // Debug temporaire : ne montre jamais les clés
   console.log({
-    envExists: !!c.env.ADMIN_API_KEY,
-    envLength: c.env.ADMIN_API_KEY?.length ?? 0,
+    hasProvided: Boolean(provided),
     providedLength: provided.length,
-    equal: timingSafeEqual(provided, c.env.ADMIN_API_KEY ?? "")
+    hasEnvKey: Boolean(expected),
+    envLength: expected.length,
+    equal: timingSafeEqual(provided, expected),
   });
 
-  if (!c.env.ADMIN_API_KEY || !timingSafeEqual(provided, c.env.ADMIN_API_KEY)) {
+  if (!expected || !timingSafeEqual(provided, expected)) {
     return c.json({ error: "unauthorized" }, 401);
   }
 
