@@ -17,6 +17,9 @@ const WINDOW_SECONDS = 300;
 
 withdraw.post("/", telegramAuth, async (c) => {
   const tgUser = c.get("telegramUser");
+  
+  // Raisina eto ny IP an'ilay mpampiasa mba hampiasaina any amin'ny FaucetPay aoriana
+  const userIp = c.req.header("CF-Connecting-IP") ?? "127.0.0.1";
 
   const { allowed } = await checkRateLimit(
     c.env.GAME_KV,
@@ -49,15 +52,6 @@ withdraw.post("/", telegramAuth, async (c) => {
     return c.json({ error: "below_minimum", minCoins: MIN_WITHDRAWAL_COINS }, 400);
   }
 
-  // Pas de vérification FaucetPay ici : l'API /checkaddress ne fonctionne
-  // qu'avec des adresses wallet (TRC20), pas avec des emails. Pour les
-  // transferts internes par email (gratuits), la validation sera faite au
-  // moment du batch le lundi. Si l'email n'existe pas, le paiement échoue
-  // et les coins sont remboursés (status "failed").
-  //
-  // On garde juste la validation de forme côté serveur (isValidFaucetPayEmail)
-  // pour rejeter les entrées manifestement invalides sans frais.
-
   const coinsConsumed = usdtToCoins(usdtAmount);
   const now = Date.now();
 
@@ -69,16 +63,18 @@ withdraw.post("/", telegramAuth, async (c) => {
     return c.json({ error: "balance_changed_retry" }, 409);
   }
 
+  // Tehirizina ao amin'ny DB miaraka amin'ny user_ip ilay fangatahana withdraw
   const created = await c.env.DB.prepare(
-    `INSERT INTO withdrawals (user_id, coins_amount, usdt_amount, address, status, requested_at)
-     VALUES (?, ?, ?, ?, 'pending', ?) RETURNING id`
+    `INSERT INTO withdrawals (user_id, coins_amount, usdt_amount, address, user_ip, status, requested_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?) RETURNING id`
   )
-    .bind(user.id, coinsConsumed, usdtAmount, address, now)
+    .bind(user.id, coinsConsumed, usdtAmount, address, userIp, now)
     .first<{ id: number }>();
 
   await logAudit(c.env.DB, String(tgUser.id), "withdraw_requested", String(created?.id ?? ""), {
     usdtAmount,
     coinsConsumed,
+    userIp,
   });
 
   return c.json({ withdrawalId: created?.id, usdtAmount, status: "pending" });
