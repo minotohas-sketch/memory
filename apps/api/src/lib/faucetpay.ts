@@ -21,8 +21,8 @@
 
 const FAUCETPAY_API_BASE = "https://faucetpay.io/api/v1";
 
-export const FAUCETPAY_CURRENCY_CODE = "USDTTRC20"; // ⚠️ à vérifier, voir ci-dessus
-export const FAUCETPAY_SMALLEST_UNIT_MULTIPLIER = 100_000_000; // ⚠️ à vérifier, voir ci-dessus
+export const FAUCETPAY_CURRENCY_CODE = "USDT"; // ⚠️ à vérifier, voir ci-dessus
+export const FAUCETPAY_SMALLEST_UNIT_MULTIPLIER = 1_000_000; // ⚠️ à vérifier, voir ci-dessus
 
 function usdtToFaucetPayAmount(usdt: number): string {
   return Math.round(usdt * FAUCETPAY_SMALLEST_UNIT_MULTIPLIER).toString();
