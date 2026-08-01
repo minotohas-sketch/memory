@@ -13,7 +13,8 @@
     // destination donnée à exe.io. Remplace après le 1er `wrangler deploy`.
     "PUBLIC_API_URL": "https://memory.minotohas.workers.dev",
     "TELEGRAM_BOT_USERNAME": "Memory",
-     "CHANNEL_USERNAME":"MemoryChm"
+     "CHANNEL_USERNAME":"MemoryChm",
+      "ADMIN_API_KEY":"###"
   },
 
   // D1 — remplace database_id après `wrangler d1 create memory-match-db`
