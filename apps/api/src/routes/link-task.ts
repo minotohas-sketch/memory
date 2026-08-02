@@ -6,14 +6,10 @@ import { logAudit } from "../lib/audit";
 
 const linkTask = new Hono<AuthEnv>();
 
-const REWARD_COINS = 60; // volontairement plus modeste que Adsgram/Monetag — voir README
+const REWARD_COINS = 60;
 const COOLDOWN_SECONDS = 45 * 60;
-// exe.io enchaîne plusieurs pages avec des comptes à rebours obligatoires —
-// une vérification en dessous de ce seuil n'a presque aucune chance d'être
-// honnête. Pas infaillible (un attaquant patient peut juste attendre), mais
-// ça élimine le bypass instantané, le plus courant en pratique.
 const MIN_PLAUSIBLE_SECONDS = 20;
-const TOKEN_TTL_MS = 30 * 60 * 1000; // le lien expire s'il n'est pas utilisé
+const TOKEN_TTL_MS = 30 * 60 * 1000;
 
 interface LinkTaskRow {
   id: string;
@@ -22,20 +18,58 @@ interface LinkTaskRow {
   created_at: number;
 }
 
+// ============ FONCTIONS DE HASH ============
+
+/**
+ * Mamadika ArrayBuffer ho string hex
+ */
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Miteraka token roa :
+ * - publicToken : alefa amin'ny URL (azo jerena)
+ * - hashedToken : voatahiry ao amin'ny base de données (tsy azo ampiasaina raha tsy manana ny original)
+ */
+async function generateTokenPair(): Promise<{ publicToken: string; hashedToken: string }> {
+  const publicToken = crypto.randomUUID();
+  
+  // Hash SHA-256 ny token
+  const encoder = new TextEncoder();
+  const data = encoder.encode(publicToken);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashedToken = bufferToHex(hashBuffer);
+  
+  return { publicToken, hashedToken };
+}
+
+/**
+ * Manamarina raha mifanaraka amin'ny hash voatahiry ny token
+ */
+async function verifyToken(publicToken: string, storedHash: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(publicToken);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const computedHash = bufferToHex(hashBuffer);
+  
+  return computedHash === storedHash;
+}
+
+// ============ HTML PAGE ============
+
 function htmlPage(
   title: string,
   message: string,
   botUsername: string | null,
   appName?: string
 ): string {
-  // Construire le lien qui ouvre directement la Mini App
   let returnLink = "";
   if (botUsername && appName) {
-    // Format: https://t.me/bot_username/app_name
-    // Cela ouvre directement la Mini App dans Telegram
     returnLink = `https://t.me/${botUsername}/${appName}`;
   } else if (botUsername) {
-    // Fallback: lien vers le bot avec commande start
     returnLink = `https://t.me/${botUsername}?start=return`;
   }
 
@@ -46,12 +80,7 @@ function htmlPage(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: linear-gradient(135deg, #0b1f1a 0%, #0d2b23 50%, #0b1f1a 100%);
     color: #f3efe4;
@@ -63,7 +92,6 @@ function htmlPage(
     padding: 24px;
     text-align: center;
   }
-  
   .card {
     max-width: 400px;
     width: 100%;
@@ -74,43 +102,31 @@ function htmlPage(
     padding: 32px 24px;
     animation: fadeInUp 0.5s ease-out;
   }
-  
   @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  
   .icon {
     font-size: 48px;
     margin-bottom: 16px;
     animation: bounce 0.6s ease-out;
   }
-  
   @keyframes bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-10px); }
   }
-  
   h1 {
     font-size: 1.5rem;
     margin-bottom: 12px;
     color: #f3efe4;
     font-weight: 700;
   }
-  
   p {
     color: #8fa79c;
     font-size: 0.95rem;
     line-height: 1.6;
     margin-bottom: 16px;
   }
-  
   .reward {
     display: inline-block;
     background: rgba(232, 183, 94, 0.15);
@@ -122,7 +138,6 @@ function htmlPage(
     font-size: 1.1rem;
     margin-bottom: 20px;
   }
-  
   .info {
     background: rgba(15, 30, 24, 0.6);
     border: 1px solid rgba(143, 167, 156, 0.2);
@@ -133,16 +148,13 @@ function htmlPage(
     color: #8fa79c;
     text-align: left;
   }
-  
   .info ol {
     margin: 8px 0 0 0;
     padding-left: 20px;
   }
-  
   .info ol li {
     margin-bottom: 4px;
   }
-  
   a.button {
     display: inline-block;
     margin-top: 16px;
@@ -156,34 +168,28 @@ function htmlPage(
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(232, 183, 94, 0.3);
   }
-  
   a.button:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(232, 183, 94, 0.4);
   }
-  
   a.button:active {
     transform: translateY(0);
   }
-  
   .auto-redirect {
     font-size: 0.8rem;
     color: #8fa79c;
     margin-top: 16px;
     animation: pulse 2s infinite;
   }
-  
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
   }
-  
   .footer {
     margin-top: 24px;
     font-size: 0.75rem;
     color: #5a7a6a;
   }
-  
   .countdown {
     font-weight: 700;
     color: #e8b75e;
@@ -192,14 +198,10 @@ function htmlPage(
 ${
   returnLink
     ? `<script>
-  // Redirection automatique après 3 secondes avec compte à rebours
   let secondsLeft = 3;
-  
   function updateCountdown() {
-    var countdownEl = document.getElementById('countdown');
-    if (countdownEl) {
-      countdownEl.textContent = secondsLeft;
-    }
+    var el = document.getElementById('countdown');
+    if (el) el.textContent = secondsLeft;
     if (secondsLeft <= 0) {
       window.location.href = "${returnLink}";
     } else {
@@ -207,8 +209,6 @@ ${
       setTimeout(updateCountdown, 1000);
     }
   }
-  
-  // Démarre le compte à rebours au chargement
   window.addEventListener('DOMContentLoaded', function() {
     setTimeout(updateCountdown, 500);
   });
@@ -254,6 +254,8 @@ ${
 </html>`;
 }
 
+// ============ ROUTES ============
+
 /** POST /api/link-task/start — génère un lien exe.io unique pour ce joueur. */
 linkTask.post("/start", telegramAuth, async (c) => {
   const tgUser = c.get("telegramUser");
@@ -273,16 +275,21 @@ linkTask.post("/start", telegramAuth, async (c) => {
     .first<{ id: number }>();
   if (!user) return c.json({ error: "user_not_found" }, 404);
 
-  const token = crypto.randomUUID();
+  // 🔐 Miteraka token + hash
+  const { publicToken, hashedToken } = await generateTokenPair();
   const now = Date.now();
 
+  // ⚠️ ZAVA-DEHIBE : Ny HASH no voatahiry, fa TSY ny token mihitsy
+  // Raha misy maka ny base de données, tsy afaka mampiasa ny hash
+  // satria mila ny token original (publicToken) amin'ny URL
   await c.env.DB.prepare(
     "INSERT INTO link_tasks (id, user_id, status, created_at) VALUES (?, ?, 'pending', ?)"
   )
-    .bind(token, user.id, now)
+    .bind(hashedToken, user.id, now)  // 👈 HASH no atao "id"
     .run();
 
-  const destinationUrl = `${c.env.PUBLIC_API_URL}/api/link-task/verify?token=${token}`;
+  // Alefa amina URL ny token public (azo jerena)
+  const destinationUrl = `${c.env.PUBLIC_API_URL}/api/link-task/verify?token=${publicToken}`;
   const result = await createExeioShortLink(c.env.EXEIO_API_TOKEN, destinationUrl);
 
   if (!result.ok) {
@@ -294,24 +301,33 @@ linkTask.post("/start", telegramAuth, async (c) => {
 });
 
 /**
- * GET /api/link-task/verify — page publique (PAS de telegramAuth : l'utilisateur
- * est dans un navigateur externe, sans contexte Telegram/initData disponible).
- * Le token seul fait le lien vers l'utilisateur à créditer.
+ * GET /api/link-task/verify — page publique
+ * 
+ * 🔐 SECURITY : Ny token alefa amin'ny URL dia publicToken.
+ * Mila manao hash azy isika vao afaka mitady azy ao amin'ny base de données
+ * satria ny hash no voatahiry.
  */
 linkTask.get("/verify", async (c) => {
-  const token = c.req.query("token");
+  const publicToken = c.req.query("token");  // Token avy amin'ny URL
   const botUsername = c.env.TELEGRAM_BOT_USERNAME || null;
   const appName = c.env.TELEGRAM_APP_NAME || null;
 
-  if (!token) {
+  if (!publicToken) {
     return c.html(
       htmlPage("Lien invalide", "Ce lien n'est pas valide.", null),
       400
     );
   }
 
+  // 🔐 Hash ny token aloha vao mitady azy ao amin'ny DB
+  const encoder = new TextEncoder();
+  const data = encoder.encode(publicToken);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashedToken = bufferToHex(hashBuffer);
+
+  // Mitady amin'ny alalan'ny HASH (fa tsy token mivantana)
   const task = await c.env.DB.prepare("SELECT * FROM link_tasks WHERE id = ?")
-    .bind(token)
+    .bind(hashedToken)
     .first<LinkTaskRow>();
 
   if (!task || task.status !== "pending") {
@@ -331,7 +347,7 @@ linkTask.get("/verify", async (c) => {
 
   if (elapsedSeconds > TOKEN_TTL_MS / 1000) {
     await c.env.DB.prepare("UPDATE link_tasks SET status = 'expired' WHERE id = ?")
-      .bind(token)
+      .bind(hashedToken)
       .run();
     return c.html(
       htmlPage(
@@ -345,17 +361,14 @@ linkTask.get("/verify", async (c) => {
   }
 
   if (elapsedSeconds < MIN_PLAUSIBLE_SECONDS) {
-    // Pas assez de temps écoulé pour avoir réellement traversé le parcours
-    // exe.io — probable contournement direct du lien de destination.
     console.error("link-task: vérification trop rapide, probable bypass", {
-      token,
       elapsedSeconds,
     });
     await logAudit(
       c.env.DB,
       String(task.user_id),
       "link_task_rejected_too_fast",
-      token,
+      publicToken,
       { elapsedSeconds }
     );
     return c.html(
@@ -372,7 +385,7 @@ linkTask.get("/verify", async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare(
       "UPDATE link_tasks SET status = 'verified', verified_at = ? WHERE id = ?"
-    ).bind(now, token),
+    ).bind(now, hashedToken),
     c.env.DB.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(
       REWARD_COINS,
       task.user_id
