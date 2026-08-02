@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { AdsgramController } from "../types/adsgram";
 
 /**
@@ -7,28 +7,64 @@ import type { AdsgramController } from "../types/adsgram";
  * d'env correspondante n'est pas configurée — show() rejette proprement dans
  * ce cas plutôt que de planter.
  */
-export function useAdsgram(blockId: string | undefined, debug = false) {
+export function useAdsgram(
+  blockId: string | undefined, 
+  debug = import.meta.env.MODE === 'development' // 👈 Auto-detection
+) {
   const controllerRef = useRef<AdsgramController | null>(null);
+
+  // ✅ Log conditionnel
+  const log = useCallback((message: string, data?: any) => {
+    if (debug) {
+      console.log(`[Adsgram] ${message}`, data || "");
+    }
+  }, [debug]);
 
   useEffect(() => {
     if (!blockId || !window.Adsgram) {
+      log("⏸️ En pause - blockId manquant ou SDK indisponible", { blockId });
       controllerRef.current = null;
       return;
     }
+
+    log("🔄 Initialisation Adsgram...", { blockId });
     const controller = window.Adsgram.init({ blockId, debug });
     controllerRef.current = controller;
+    log("✅ Adsgram initialisé avec succès");
+
     return () => {
-      controller.destroy();
-      controllerRef.current = null;
+      if (controllerRef.current) {
+        log("🧹 Destruction Adsgram");
+        controllerRef.current.destroy();
+        controllerRef.current = null;
+      }
     };
-  }, [blockId, debug]);
+  }, [blockId, debug, log]);
 
-  const show = () => {
+  // ✅ show avec message user-friendly
+  const show = useCallback((): Promise<void> => {
     if (!controllerRef.current) {
-      return Promise.reject(new Error("adsgram_not_available"));
+      log("⏸️ Show ignoré - controller non disponible");
+      return Promise.reject(new Error("Ads not available")); // 👈 Message user-friendly
     }
-    return controllerRef.current.show();
-  };
 
-  return { show };
+    log("📺 Affichage publicité...");
+    return controllerRef.current.show()
+      .then(() => {
+        log("✅ Publicité affichée avec succès");
+      })
+      .catch((err) => {
+        log("❌ Erreur affichage", err);
+        throw new Error("Ads not available"); // 👈 Message user-friendly
+      });
+  }, [log]);
+
+  // ✅ isReady pour vérifier l'état
+  const isReady = useCallback((): boolean => {
+    const ready = !!controllerRef.current && !!window.Adsgram;
+    log(`📊 isReady: ${ready}`);
+    return ready;
+  }, [log]);
+
+  return { show, isReady };
 }
