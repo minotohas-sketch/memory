@@ -14,10 +14,13 @@ interface Props {
 
 type EarnSection = "tasks" | "ptc" | "linktask" | "referral";
 
+// Configuration du bot Telegram (à personnaliser)
+const BOT_USERNAME = import.meta.env.VITE_BOT_USERNAME || "votre_bot";
+
 export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
   const [section, setSection] = useState<EarnSection>("tasks");
 
-  // Publicités récompensées
+  // ============ PUBLICITÉS RÉCOMPENSÉES ============
   const adsgramCoins = useRewardAd(
     import.meta.env.VITE_ADSGRAM_BONUS_BLOCK_ID,
     api,
@@ -35,7 +38,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
   );
   const taskCooldown = useStableCooldown("task", me.adCooldowns.task ?? 0);
 
-  // ============ PTC (Paid-To-Click) ============
+  // ============ PTC (PAID-TO-CLICK) ============
   const [ptcState, setPtcState] = useState({
     token: null as string | null,
     timer: 0,
@@ -47,7 +50,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
     cooldown: 0,
   });
 
-  // Compte à rebours PTC
+  // Compte à rebours du cooldown PTC
   useEffect(() => {
     if (ptcState.cooldown <= 0) return;
     const interval = setInterval(() => {
@@ -94,7 +97,10 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
           : "Erreur lors de l'ouverture du lien. Réessayez.",
         cooldown: isRateLimited ? 86400 : prev.cooldown,
       }));
-      setTimeout(() => setPtcState((prev) => ({ ...prev, error: null })), 4000);
+      setTimeout(
+        () => setPtcState((prev) => ({ ...prev, error: null })),
+        4000
+      );
     }
   };
 
@@ -106,7 +112,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
       const res = await api.ptcClaim(ptcState.token);
       setPtcState((prev) => ({
         ...prev,
-        success: `+${res.coinsEarned} coins gagnés !`,
+        success: `+${res.coinsEarned} coins gagnés ! 🎉`,
         status: "done",
         cooldown: 86400,
       }));
@@ -132,24 +138,36 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
             : "Erreur lors de la réclamation. Réessayez.",
         status: "waiting",
       }));
-      setTimeout(() => setPtcState((prev) => ({ ...prev, error: null })), 3000);
+      setTimeout(
+        () => setPtcState((prev) => ({ ...prev, error: null })),
+        3000
+      );
     }
   };
 
-  // ============ Tâche publicitaire ============
+  // ============ TÂCHE PUBLICITAIRE ============
   const handleTaskWatch = () => {
     const adsgram = (window as any).Adsgram;
-    if (!adsgram) return;
+    if (!adsgram) {
+      console.warn("Adsgram non disponible");
+      return;
+    }
     const blockId = import.meta.env.VITE_ADSGRAM_TASK_BLOCK_ID;
+    if (!blockId) {
+      console.warn("Block ID non configuré");
+      return;
+    }
     adsgram
       .show({ blockId })
       .then(() => {
         api.me().then(onMeUpdate).catch(() => {});
       })
-      .catch(() => {});
+      .catch((err: any) => {
+        console.error("Erreur Adsgram:", err);
+      });
   };
 
-  // ============ Lien bonus ============
+  // ============ LIEN BONUS ============
   const [linkState, setLinkState] = useState({
     loading: false,
     url: null as string | null,
@@ -165,12 +183,53 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
         api.me().then(onMeUpdate).catch(() => {});
         setLinkState((prev) => ({ ...prev, url: null }));
       }, 5000);
-    } catch {
+    } catch (err) {
+      console.error("Erreur lien bonus:", err);
       setLinkState({ loading: false, url: null });
     }
   };
 
-  // ============ Utilitaires de formatage ============
+  // ============ PARRAINAGE ============
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const referralLink = `https://t.me/${BOT_USERNAME}?start=${me.referral_code}`;
+  const shareText = `🎮 Rejoins-moi sur ce jeu incroyable et gagne des récompenses !\n\n👉 ${referralLink}\n\nUtilise mon code : ${me.referral_code}`;
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(me.referral_code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch (err) {
+      console.error("Erreur copie code:", err);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (err) {
+      console.error("Erreur copie lien:", err);
+    }
+  };
+
+  const handleShare = () => {
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(
+        `https://t.me/share/url?url=${encodeURIComponent(
+          referralLink
+        )}&text=${encodeURIComponent("Rejoins-moi sur ce jeu ! 🎮")}`
+      );
+    } else {
+      // Fallback : copier le texte de partage
+      navigator.clipboard.writeText(shareText).catch(console.error);
+    }
+  };
+
+  // ============ UTILITAIRES DE FORMATAGE ============
   const formatTimeShort = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -186,7 +245,7 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
     return `${secs}s`;
   };
 
-  // ============ Onglets de navigation ============
+  // ============ ONGLETS DE NAVIGATION ============
   const tabs: { key: EarnSection; label: string; icon: string }[] = [
     { key: "tasks", label: "Publicités", icon: "📺" },
     { key: "ptc", label: "PTC", icon: "🔗" },
@@ -236,8 +295,9 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
               📺 Regarder une publicité
             </p>
             <p className="text-xs text-sage">
-              Visionnez une courte publicité pour gagner des coins instantanément.
-              Chaque publicité vous rapporte des coins que vous pouvez utiliser dans le jeu.
+              Visionnez une courte publicité pour gagner des coins
+              instantanément. Chaque publicité vous rapporte des coins que vous
+              pouvez utiliser dans le jeu.
             </p>
           </div>
 
@@ -263,7 +323,9 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
             disabled={taskCooldown > 0}
             className="rounded-2xl bg-surface border border-surface-2 px-5 py-4 text-left disabled:opacity-50 transition-all hover:border-gold/30"
           >
-            <p className="text-cream font-semibold text-sm">📋 Tâche sponsorisée</p>
+            <p className="text-cream font-semibold text-sm">
+              📋 Tâche sponsorisée
+            </p>
             <p className="text-xs text-sage mt-0.5">
               {taskCooldown > 0
                 ? `Disponible dans ${formatTimeShort(taskCooldown)}`
@@ -284,7 +346,9 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
             <ol className="list-decimal list-inside space-y-1.5 text-xs text-sage">
               <li>
                 Appuyez sur{" "}
-                <span className="text-gold font-medium">"Ouvrir le lien"</span>
+                <span className="text-gold font-medium">
+                  "Ouvrir le lien"
+                </span>
               </li>
               <li>
                 Restez{" "}
@@ -352,7 +416,9 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
           {/* Cooldown */}
           {ptcState.cooldown > 0 && ptcState.status === "idle" && (
             <div className="rounded-2xl bg-surface border border-surface-2 p-5 text-center">
-              <p className="text-sage text-sm">Prochain PTC disponible dans</p>
+              <p className="text-sage text-sm">
+                Prochain PTC disponible dans
+              </p>
               <p className="font-mono text-2xl font-bold text-gold mt-1">
                 {formatTimeLong(ptcState.cooldown)}
               </p>
@@ -414,30 +480,104 @@ export function EarnScreen({ api, me, onMeUpdate, onBack }: Props) {
       {/* ============ SECTION PARRAINAGE ============ */}
       {section === "referral" && (
         <div className="flex flex-col gap-4">
+          {/* Instructions */}
           <div className="bg-surface border border-surface-2 rounded-2xl p-4">
             <p className="text-cream font-semibold text-sm mb-2">
               👥 Parrainez vos amis
             </p>
             <p className="text-xs text-sage">
-              Partagez votre code de parrainage unique avec vos amis. Lorsqu'ils
-              rejoignent le jeu avec votre code, vous recevez des bonus exclusifs
-              !
+              Partagez votre lien de parrainage unique avec vos amis. Lorsqu'ils
+              rejoignent le jeu avec votre lien ou votre code, vous recevez des
+              bonus exclusifs !
             </p>
           </div>
 
-          <div className="rounded-2xl bg-surface border border-surface-2 p-6 text-center">
+          {/* Code de parrainage */}
+          <div className="rounded-2xl bg-surface border border-surface-2 p-5 text-center">
             <p className="text-xs text-sage mb-3">Votre code de parrainage</p>
             <p className="font-mono text-3xl font-bold text-gold tracking-widest select-all">
               {me.referral_code}
             </p>
             <button
-              onClick={() => navigator.clipboard.writeText(me.referral_code)}
+              onClick={handleCopyCode}
               className="mt-4 inline-flex items-center gap-1.5 text-sm text-gold hover:text-cream transition-colors"
             >
-              <span>📋</span>
-              <span>Copier le code</span>
+              <span>{copiedCode ? "✅" : "📋"}</span>
+              <span>{copiedCode ? "Copié !" : "Copier le code"}</span>
             </button>
           </div>
+
+          {/* Lien de parrainage complet */}
+          <div className="rounded-2xl bg-surface border border-surface-2 p-5 text-center">
+            <p className="text-xs text-sage mb-3">Votre lien de parrainage</p>
+            <div className="bg-ink/30 rounded-xl p-3 mb-3">
+              <p className="text-xs text-sage break-all select-all">
+                {referralLink}
+              </p>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex items-center gap-1.5 text-sm text-gold hover:text-cream transition-colors"
+            >
+              <span>{copiedLink ? "✅" : "🔗"}</span>
+              <span>{copiedLink ? "Copié !" : "Copier le lien"}</span>
+            </button>
+          </div>
+
+          {/* Bouton de partage Telegram */}
+          <button
+            onClick={handleShare}
+            className="rounded-2xl bg-gold text-ink font-bold py-4 text-center active:scale-[0.98] transition-all hover:shadow-lg hover:shadow-gold/20 flex items-center justify-center gap-2"
+          >
+            <span>📤</span>
+            <span>Partager avec des amis</span>
+          </button>
+
+          {/* Message de partage (fallback) */}
+          <div className="bg-surface border border-surface-2 rounded-2xl p-4">
+            <p className="text-xs text-sage mb-2">
+              💡 Vous pouvez aussi copier ce message et l'envoyer à vos amis :
+            </p>
+            <div className="bg-ink/30 rounded-xl p-3">
+              <p className="text-xs text-sage whitespace-pre-wrap select-all">
+                {shareText}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(shareText);
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-gold hover:text-cream transition-colors"
+            >
+              <span>📋</span>
+              <span>Copier le message</span>
+            </button>
+          </div>
+
+          {/* Statistiques de parrainage (optionnel) */}
+          {me.referral_count !== undefined && (
+            <div className="rounded-2xl bg-surface border border-surface-2 p-4">
+              <p className="text-cream font-semibold text-sm mb-3">
+                📊 Vos statistiques
+              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-sage">Amis parrainés</span>
+                  <span className="text-gold font-bold">
+                    {me.referral_count}
+                  </span>
+                </div>
+                {me.referral_earnings !== undefined && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-sage">Coins gagnés</span>
+                    <span className="text-gold font-bold">
+                      +{me.referral_earnings}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
